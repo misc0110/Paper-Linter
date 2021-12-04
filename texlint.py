@@ -3,6 +3,7 @@ import sys
 
 tex = open(sys.argv[1]).read()
 tex_lines = tex.split("\n")
+tex_lines_clean = tex.split("\n")
 in_env = {}
 envs = {}
 
@@ -24,8 +25,15 @@ def preprocess():
                     in_env[e].append(False)
                 else:
                     in_env[e].append(in_env[e][-1])
-            #if tex_lines[i].strip().startswith("%"):
-                #tex_lines[i] = tex_lines[i][0:tex_lines[i].index("%")] + " REMOVED"
+            if "%" in tex_lines[i]:
+                idx = tex_lines[i].index("%")
+                if idx > 0 and tex_lines[i][idx - 1] != "\\":
+                    tex_lines_clean[i] = tex_lines[i][0:max(0, (tex_lines[i].index("%") - 1))]
+                    if tex_lines_clean[i].startswith("%"): tex_lines_clean[i] = ""
+                else:
+                    tex_lines_clean[i] = tex_lines[i]
+            else:
+                tex_lines_clean[i] = tex_lines[i]
 
 
 def in_any_env(line):
@@ -339,6 +347,25 @@ def check_one_sentence_paragraphs():
     return warns
 
 
+def check_multiple_sentences_per_line():
+    warns = []
+    for i, l in enumerate(tex_lines_clean):
+        p = re.search("[.!?]\\s+\\w+", l.rstrip())
+        if p:
+            warns.append((i, "Multiple sentences in one line", p.span()))
+    return warns
+
+
+def check_unbalanced_brackets():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        if l.count("(") != l.count(")"):
+            first = min(l.index("(") if l.count("(") > 0 else len(l), l.index(")") if l.count(")") > 0 else len(l))
+            last = max(l.rindex("(") if l.count("(") > 0 else len(l), l.rindex(")") if l.count(")") > 0 else len(l))
+            warns.append((i, "Mismatch of opening and closing parenthesis", (first, last)))
+    return warns
+
+
 def print_warnings(warn):
     warnings = 0
     sorted_warn = sorted(warn, key=lambda tup: tup[0])
@@ -354,7 +381,7 @@ def print_warnings(warn):
             print(w[1])
         if len(w) > 2:
             print("    %s" % tex_lines[w[0]].replace("\t", " "))
-            print("    %s%s" % (" " * w[2][0], "^" * (w[2][1] - w[2][0])))
+            print("    %s\033[33m%s\033[0m" % (" " * w[2][0], "^" * (w[2][1] - w[2][0])))
     return warnings
 
 preprocess()
@@ -391,7 +418,9 @@ checks = [
     check_hline_in_table,
     check_space_before_punctuation,
     check_headers_without_text,
-    check_one_sentence_paragraphs
+    check_one_sentence_paragraphs,
+    check_multiple_sentences_per_line,
+    check_unbalanced_brackets
 ]
 
 warnings = []
