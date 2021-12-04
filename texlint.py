@@ -28,7 +28,7 @@ def preprocess():
 
 def in_any_env(line):
     for e in in_env:
-        if e[line]:
+        if in_env[e][line]:
             return True
     return False
 
@@ -47,7 +47,7 @@ def check_space_before_cite():
         b = re.search("[^ ~]\\\\cite", l)
         if b:
             if not "\\etal\\cite" in l:
-                warns.append((i, "No space before \\cite: %s" % b.group(0)))
+                warns.append((i, "No space before \\cite", b.span(0)))
     return warns
 
 def check_float_alignment(env):
@@ -56,7 +56,7 @@ def check_float_alignment(env):
         b = re.search("\\\\begin\{%s\}" % env, l)
         if b:
             if not re.search("%s}\[[^\]]*[htb][^\]]*\]" % env, l):
-                warns.append((i, "%s without alignment: %s" % (env, l.strip())))
+                warns.append((i, "%s without alignment: %s" % (env, l.strip()), b.span()))
     return warns
 
 def check_figure_alignment():
@@ -118,10 +118,12 @@ def check_no_resizebox_for_tables():
     if "table" not in envs: return warns
     for r in envs["table"]:
         rb = False
+        b = None
         for i in range(*r):
             b = re.search("\\\\resizebox\{", tex_lines[i])
             if b:
                 rb = True
+                break
         if rb:
             warns.append((r[0], "table with resizebox -> use adjustbox instead"))
     return warns
@@ -133,7 +135,7 @@ def check_weird_units():
     for i, l in enumerate(tex_lines):
         for b in block:
             if b in l:
-                warns.append((i, "use \\hsize instead of %s" % b))
+                warns.append((i, "use \\hsize instead of %s" % b, (l.index(b), l.index(b) + len(b))))
     return warns
 
 def check_figure_has_label():
@@ -167,7 +169,7 @@ def check_todos():
     warns = []
     for i, l in enumerate(tex_lines):
         if "TODO" in l:
-            warns.append((i, "TODO found"))
+            warns.append((i, "TODO found", (l.index("TODO"), l.index("TODO") + 4)))
     return warns
 
 
@@ -175,7 +177,7 @@ def check_notes():
     warns = []
     for i, l in enumerate(tex_lines):
         if "\\note" in l:
-            warns.append((i, "\\note found"))
+            warns.append((i, "\\note found", (l.index("\\note"), l.index("\\note") + 5)))
     return warns
 
 def check_math_numbers():
@@ -183,7 +185,7 @@ def check_math_numbers():
     for i, l in enumerate(tex_lines):
         n = re.search("\\$\\d+\\$", tex_lines[i]) 
         if n and not in_any_float(i):
-            warns.append((i, "Number in math mode (%s), consider using siunit instead" % n.group(0)))
+            warns.append((i, "Number in math mode, consider using siunit instead", n.span()))
     return warns
 
 
@@ -192,7 +194,7 @@ def check_large_numbers_without_si():
     for i, l in enumerate(tex_lines):
         n = re.search("[\\s\(]\\d{5,}[\\s\),\.]", tex_lines[i]) 
         if n and not in_any_float(i):
-            warns.append((i, "Large number without formating (%s), consider using siunit" % n.group(0)))
+            warns.append((i, "Large number without formating, consider using siunit", n.span()))
     return warns
 
 def check_env_not_in_float(env, float_env):
@@ -220,8 +222,9 @@ def check_comment_has_space():
         ls = l.strip()
         if "%" in ls:
             if ls[0] != "%":
-                if re.search("[^\\s\\\\\\}\\{]+%", l):
-                    warns.append((i, "Comment without a whitespace before"))
+                c = re.search("[^\\s\\\\\\}\\{]+%", l)
+                if c:
+                    warns.append((i, "Comment without a whitespace before", c.span()))
     return warns
 
 
@@ -230,7 +233,7 @@ def check_percent_without_siunix():
     for i, l in enumerate(tex_lines):
         n = re.search("\\d+\\s*\\\\%", l)
         if n:
-            warns.append((i, "Number with percent (%s) without siunit" % n.group(0)))
+            warns.append((i, "Number with percent without siunit", n.span(0)))
     return warns
 
 
@@ -239,7 +242,7 @@ def check_short_form():
     for i, l in enumerate(tex_lines):
         n = re.search("[^`%]\\w+'[^s' ,.!?-]", l)
         if n:
-            warns.append((i, "Contracted form used: %s" % n.group(0)))
+            warns.append((i, "Contracted form used", n.span()))
     return warns
 
 
@@ -266,19 +269,75 @@ def check_section_capitalization():
                 words = n.group(2).split(" ")
                 for w in words:
                     if len(w) > 4 and w[0].islower():
-                        warns.append((i, "Wrong capitalization: '%s'" % n.group(2)))
+                        warns.append((i, "Wrong capitalization of header", (l.index(w), l.index(w) + 1)))
                         break
             except:
                 pass
     return warns
 
 
+def check_quotation():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        ws = re.search("\"\\w+", l)
+        we = re.search("\\w+\"", l)
+        if ws or we:
+            warns.append((i, "Wrong quotation, use `` and '' instead of \"", ws.span() if ws else we.span()))
+    return warns
+
+
+def check_hline_in_table():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        hl = re.search("\\\\hline", l)
+        if hl:
+            if "tabular" in in_env and in_env["tabular"]:
+                warns.append((i, "\\hline in table, consider using \\toprule, \\midrule, \\bottomrule.", hl.span()))
+    return warns
+
+
+def check_space_before_punctuation():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        s = re.search("\\s+[,.!?:;]", l)
+        if s and not in_any_env(i):
+            warns.append((i, "Spacing before punctuation", s.span()))
+    return warns
+
+
+def check_headers_without_text():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        n = re.search("(section|paragraph)\\{([^\\}]+)\\}", l)
+        if n:
+            nx = i
+            while (nx + 1) < len(tex_lines):
+                nx += 1
+                if len(tex_lines[nx].strip()) == 0: continue
+                if tex_lines[nx].strip().startswith("%"): continue
+                nn = re.search("(section|paragraph)\\{([^\\}]+)\\}", tex_lines[nx])
+                if nn:
+                    warns.append((i, "Section header without text before next header", n.span()))
+                break
+    return warns
+                
+
+warnings = 0
 def print_warnings(warn):
+    global warnings
     for w in warn:
+        if w[0] != -1 and tex_lines[w[0]].strip().startswith("%"):
+            continue
+
+        print("\033[33mWarning %d\033[0m: " % (warnings + 1), end = "")
+        warnings += 1
         if w[0] != -1:
             print("Line %d: %s" % (w[0] + 1, w[1]))
         else:
             print(w[1])
+        if len(w) > 2:
+            print("    %s" % tex_lines[w[0]].replace("\t", " "))
+            print("    %s%s" % (" " * w[2][0], "^" * (w[2][1] - w[2][0])))
 
 
 preprocess()
@@ -310,8 +369,15 @@ checks = [
     check_percent_without_siunix,
     check_short_form,
     check_labels_referenced,
-    check_section_capitalization
+    check_section_capitalization,
+    check_quotation,
+    check_hline_in_table,
+    check_space_before_punctuation,
+    check_headers_without_text
 ]
 
 for c in checks:
     print_warnings(c())
+
+print("")
+print("%d warnings printed" % warnings)
