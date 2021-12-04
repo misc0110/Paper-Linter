@@ -350,7 +350,7 @@ def check_one_sentence_paragraphs():
 def check_multiple_sentences_per_line():
     warns = []
     for i, l in enumerate(tex_lines_clean):
-        p = re.search("[.!?]\\s+\\w+", l.rstrip())
+        p = re.search("[\\.!?]\\s+\\w+", l.rstrip())
         if p:
             warns.append((i, "Multiple sentences in one line", p.span()))
     return warns
@@ -359,10 +359,97 @@ def check_multiple_sentences_per_line():
 def check_unbalanced_brackets():
     warns = []
     for i, l in enumerate(tex_lines):
-        if l.count("(") != l.count(")"):
+        if l.count("(") != l.count(")") and not in_code(i):
             first = min(l.index("(") if l.count("(") > 0 else len(l), l.index(")") if l.count(")") > 0 else len(l))
             last = max(l.rindex("(") if l.count("(") > 0 else len(l), l.rindex(")") if l.count(")") > 0 else len(l))
             warns.append((i, "Mismatch of opening and closing parenthesis", (first, last)))
+    return warns
+
+
+def check_and_or():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        ao = re.search("and/or", l)
+        if ao:
+            warns.append((i, "And/or discouraged in academic writing", ao.span()))
+    return warns
+
+
+def check_ellipsis():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        el = re.search("\\w+\\.\\.\\.", l)
+        if el:
+            warns.append((i, "Ellipsis \"...\" discouraged in academic writing", el.span()))
+    return warns
+
+
+def check_etc():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        el = re.search("\\s+etc[\\.\\w]", l)
+        if el:
+            warns.append((i, "Unspecific \"etc\" discouraged in academic writing", el.span()))
+    return warns
+
+
+def check_footnote():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        fn = re.search("\\s*\\\\footnote\\{[^\\}]+\\}\\.", l)
+        if fn:
+            warns.append((i, "Footnote must be after the full stop", fn.span()))
+    return warns
+
+
+def check_table_top_caption():
+    warns = []
+    if "table" in envs:
+        for table in envs["table"]:
+            caption = -1
+            tab = -1
+            for intab in range(*table):
+                if re.search("\\\\caption\\{", tex_lines[intab]):
+                   caption = intab
+                if re.search("\\\\begin\\{tabular", tex_lines[intab]):
+                    tab = intab
+            if tab != -1 and caption != -1 and tab < caption:
+                warns.append((table[0], "Table caption must be above table"))
+    return warns
+
+
+
+def check_punctuation_end_of_line():
+    warns = []
+    for i, l in enumerate(tex_lines_clean):
+        sl = l.strip()
+        if len(sl) < 10: continue
+        if len(sl.split(" ")) < 8: continue
+        if in_any_float(i): continue
+        if sl.startswith("\\") or sl.startswith("%"): continue
+        if sl.endswith("\\\\") or sl.endswith("}"): continue
+        if sl.endswith(".") or sl.endswith("!") or sl.endswith("?") or sl.endswith(":") or sl.endswith(";"): continue
+        p = re.search("\\s*[\\w})$]+[\\.!?}{:;\\\\]\\s*$", l.rstrip())
+        if not p:
+            warns.append((i, "Line ends without punctuation", (len(l) - 2, len(l))))
+    return warns
+
+
+def check_table_vertical_lines():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        t = re.search("\\\\begin\\{tabular\\}\\{([^\\}]+)\\}", l)
+        if t and "|" in t.group(1):
+            warns.append((i, "Vertical lines in tables are discouraged", t.span()))
+    return warns
+
+
+def check_will():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        w = re.search("\\s+will\\s+", l)
+        if w:
+            warns.append((i, "Usage of \"will\" is discouraged.", w.span()))
     return warns
 
 
@@ -420,7 +507,15 @@ checks = [
     check_headers_without_text,
     check_one_sentence_paragraphs,
     check_multiple_sentences_per_line,
-    check_unbalanced_brackets
+    check_unbalanced_brackets,
+    check_and_or,
+    check_ellipsis,
+    check_etc,
+    check_punctuation_end_of_line,
+    check_footnote,
+    check_table_vertical_lines,
+    check_table_top_caption,
+    check_will
 ]
 
 warnings = []
