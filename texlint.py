@@ -24,6 +24,8 @@ def preprocess():
                     in_env[e].append(False)
                 else:
                     in_env[e].append(in_env[e][-1])
+            #if tex_lines[i].strip().startswith("%"):
+                #tex_lines[i] = tex_lines[i][0:tex_lines[i].index("%")] + " REMOVED"
 
 
 def in_any_env(line):
@@ -40,6 +42,10 @@ def in_any_float(line):
             return True
     return False
 
+def in_code(line):
+    if "lstlisting" in in_env:
+        return in_env["lstlisting"][line]
+    return False
 
 def check_space_before_cite():
     warns = []
@@ -223,7 +229,7 @@ def check_comment_has_space():
         if "%" in ls:
             if ls[0] != "%":
                 c = re.search("[^\\s\\\\\\}\\{]+%", l)
-                if c:
+                if c and not in_code(i):
                     warns.append((i, "Comment without a whitespace before", c.span()))
     return warns
 
@@ -281,7 +287,7 @@ def check_quotation():
     for i, l in enumerate(tex_lines):
         ws = re.search("\"\\w+", l)
         we = re.search("\\w+\"", l)
-        if ws or we:
+        if (ws or we) and not in_code(i):
             warns.append((i, "Wrong quotation, use `` and '' instead of \"", ws.span() if ws else we.span()))
     return warns
 
@@ -320,12 +326,23 @@ def check_headers_without_text():
                     warns.append((i, "Section header without text before next header", n.span()))
                 break
     return warns
-                
 
-warnings = 0
+
+def check_one_sentence_paragraphs():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        if i > 0 and i < len(tex_lines) - 1:
+            if len(tex_lines[i - 1].strip()) == 0 and len(tex_lines[i + 1].strip()) == 0 and len(tex_lines[i].strip()) > 0:
+                if tex_lines[i].strip().startswith("\\"): continue
+                if ". " in tex_lines[i]: continue
+                warns.append((i, "One-sentence paragraph", (0, len(tex_lines[i]))))
+    return warns
+
+
 def print_warnings(warn):
-    global warnings
-    for w in warn:
+    warnings = 0
+    sorted_warn = sorted(warn, key=lambda tup: tup[0])
+    for w in sorted_warn:
         if w[0] != -1 and tex_lines[w[0]].strip().startswith("%"):
             continue
 
@@ -338,7 +355,7 @@ def print_warnings(warn):
         if len(w) > 2:
             print("    %s" % tex_lines[w[0]].replace("\t", " "))
             print("    %s%s" % (" " * w[2][0], "^" * (w[2][1] - w[2][0])))
-
+    return warnings
 
 preprocess()
 
@@ -373,11 +390,15 @@ checks = [
     check_quotation,
     check_hline_in_table,
     check_space_before_punctuation,
-    check_headers_without_text
+    check_headers_without_text,
+    check_one_sentence_paragraphs
 ]
 
+warnings = []
 for c in checks:
-    print_warnings(c())
+    warnings += c()
+
+nr_warnings = print_warnings(warnings)
 
 print("")
-print("%d warnings printed" % warnings)
+print("%d warnings printed" % nr_warnings)
