@@ -69,7 +69,7 @@ def check_float_alignment(env):
     for i, l in enumerate(tex_lines):
         b = re.search("\\\\begin\{%s\}" % env, l)
         if b:
-            if not re.search("%s}\[[^\]]*[htb][^\]]*\]" % env, l):
+            if not re.search("%s}\[[^\]]*[htbH][^\]]*\]" % env, l):
                 warns.append((i, "%s without alignment: %s" % (env, l.strip()), b.span()))
     return warns
 
@@ -236,7 +236,7 @@ def check_comment_has_space():
         ls = l.strip()
         if "%" in ls:
             if ls[0] != "%":
-                c = re.search("[^\\s\\\\\\}\\{]+%", l)
+                c = re.search("[^\\s\\\\\\}\\{%]+%", l)
                 if c and not in_code(i):
                     warns.append((i, "Comment without a whitespace before", c.span()))
     return warns
@@ -254,7 +254,7 @@ def check_percent_without_siunix():
 def check_short_form():
     warns = []
     for i, l in enumerate(tex_lines):
-        n = re.search("[^`%]\\w+'[^s' ,.!?-]", l)
+        n = re.search("[^`%]\\w+'[^s' ,.!?\-0-9]", l)
         if n:
             warns.append((i, "Contracted form used", n.span()))
     return warns
