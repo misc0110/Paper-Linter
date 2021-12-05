@@ -453,6 +453,63 @@ def check_will():
     return warns
 
 
+def check_subsection_count():
+    warns = []
+    last_section = -1
+    subsections = []
+    for i, l in enumerate(tex_lines):
+        if re.search("\\\\section{", l):
+            if last_section != -1 and len(subsections) == 1:
+                warns.append((last_section, "Section only has one subsection", re.search("\\\\section{", tex_lines[last_section]).span()))
+            last_section = i
+            subsections = []
+        if re.search("\\\\subsection{", l):
+            subsections.append(i)
+    return warns
+
+
+def check_mixed_compact_and_item():
+    warns = []
+    if "\\begin{compactenum}" in tex:
+        for i, l in enumerate(tex_lines):
+            it = re.search("\\\\begin\{enumerate\}", l)
+            if it:
+                warns.append((i, "compactenum mixed with enumerate", it.span()))
+    if "\\begin{compactitem}" in tex:
+        for i, l in enumerate(tex_lines):
+            it = re.search("\\\\begin\{itemize\}", l)
+            if it:
+                warns.append((i, "compactitem mixed with itemize", it.span()))
+    return warns
+
+
+def check_center_in_float():
+    warns = []
+    if "center" in envs:
+        for c in envs["center"]:
+            if in_any_float(c[0]):
+                warns.append((c[0], "Use \\centering instead of \\begin{center} inside floats", re.search("\\\\begin\{center\}", tex_lines[c[0]]).span()))
+    return warns
+
+
+def check_appendix():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        ap = re.search("\\\\begin\{appendix\}", l)
+        if ap:
+            warns.append((i, "Use \\appendix instead of \\begin{appendix}", ap.span()))
+    return warns
+
+
+def check_eqnarray():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        ap = re.search("\\\\begin\{eqnarray\}", l)
+        if ap:
+            warns.append((i, "Use \\begin{align} instead of \\begin{eqnarray}", ap.span()))
+    return warns
+
+
 def print_warnings(warn):
     warnings = 0
     sorted_warn = sorted(warn, key=lambda tup: tup[0])
@@ -515,7 +572,12 @@ checks = [
     check_footnote,
     check_table_vertical_lines,
     check_table_top_caption,
-    check_will
+    check_will,
+    check_subsection_count,
+    check_mixed_compact_and_item,
+    check_center_in_float,
+    check_appendix,
+    check_eqnarray
 ]
 
 warnings = []
