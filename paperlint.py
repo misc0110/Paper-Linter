@@ -195,7 +195,7 @@ def check_listing_caption_label_order():
 
 def check_todos():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         if "TODO" in l:
             warns.append((i, "TODO found", (l.index("TODO"), l.index("TODO") + 4)))
     return warns
@@ -203,7 +203,7 @@ def check_todos():
 
 def check_notes():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         if "\\note" in l:
             warns.append((i, "\\note found", (l.index("\\note"), l.index("\\note") + 5)))
         if "\\todo" in l:
@@ -270,8 +270,8 @@ def check_percent_without_siunix():
 
 def check_short_form():
     warns = []
-    for i, l in enumerate(tex_lines):
-        n = re.search("[^`%]\\w+'[^s' ,.!?\-0-9]", l)
+    for i, l in enumerate(tex_lines_clean):
+        n = re.search("[^`%]\\w+'[a-rt-z]", l)
         if n:
             warns.append((i, "Contracted form used", n.span()))
     return warns
@@ -313,7 +313,7 @@ def check_section_capitalization():
 
 def check_quotation():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         ws = re.search("\"\\w+", l)
         we = re.search("\\w+\"", l)
         if (ws or we) and not in_code(i):
