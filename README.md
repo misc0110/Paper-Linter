@@ -1,0 +1,209 @@
+# LaTeX Paper Linter
+
+This script checks for common mistakes in LaTeX source files of scientific papers. 
+
+## Warnings
+
+Warnings are grouped in different categories:
+
+* General
+* Typography
+* Visual
+* Style
+* References
+
+### General
+This category includes general mistakes and discouraged things.
+
+#### TODOs
+* **Description**: Warns if the string "TODO" appears in the paper
+* **Switch**: `todo`
+
+#### Notes
+* **Description**: Warns if there are `\note` or `\todo` notes in the paper
+* **Switch**: `note`
+
+#### Multiple Sentences per Line
+* **Description**: Warns if there are multiple sentences per line
+* **Switch**: `multiple-sentences`
+
+#### Will Future
+* **Description**: Warns if there are sentences with "will" future
+* **Switch**: `will`
+
+#### Short Forms
+* **Description**: Warns if short forms, such as "can't", "shouldn't", etc., are used
+* **Switch**: `short-form`
+
+
+### Typography
+This category includes typography-related issues, such as wrong punctuation.
+
+#### No Space before Citation
+* **Description**: Warns if there is no space before a `\cite` command
+* **Switch**: `cite-space`
+
+#### Numbers in math Environment
+* **Description**: Warns if the math environment is used purely to format numbers
+* **Switch**: `math-numbers`
+
+#### Large Numbers without siunit
+* **Description**: Warns if large numbers are not formuatted with the `sinuit` package
+* **Switch**: `si`
+
+#### Percentage without siunit
+* **Description**: Warns if percentages are not formuatted with the `siunit` package
+* **Switch**: `percentage`
+
+#### Wrong Quotation Marks
+* **Description**: Warns if the wrong quotation marks (") are used
+* **Switch**: `quotes`
+
+#### Space before Punctuation
+* **Description**: Warns if there is a space before a punctuation character
+* **Switch**: `punctuation-space`
+
+#### Unbalanced Brackets
+* **Description**: Warns if the number of opening and closing brackets per line does not match
+* **Switch**: `unbalanced-brackets`
+
+#### Usage of and/or
+* **Description**: Warns if "and/or" is used
+* **Switch**: `and-or`
+
+#### Ellipsis with ...
+* **Description**: Warns if an ellipsis with three dots ("...") is used
+* **Switch**: `ellipsis`
+
+#### Footnote before Period
+* **Description**: Warns if a footnote is before the period
+* **Switch**: `footnote`
+
+#### No Punctuation Mark at End of Line
+* **Description**: Warns if a line does not end with a punctuation mark
+* **Switch**: `punctuation`
+
+#### No Space before Comment
+* **Description**: Warns if there is no space before a comment
+* **Switch**: `comment-space`
+
+
+### Visual
+This category includes warning regarding code that is visually not optimal and can be improved to make the paper look better
+
+#### hlines in Tables
+* **Description**: Warns if `\hline` is used in tables instead of `\toprule`, `\midrule`, and `\bottomrule`
+* **Switch**: `hline`
+
+#### No Text between Two Headers
+* **Description**: Warns if there are two section headers without text in between
+* **Switch**: `two-header`
+
+#### Single Sentence Paragraphs
+* **Description**: Warns if a paragraph consists of only a single sentence
+* **Switch**: `single-sentence`
+
+#### Tables with Vertical Lines
+* **Description**: Warns if vertical lines are used in tables
+* **Switch**: `vline`
+
+#### Single subsection in a Section
+* **Description**: Warns if a section has only one explicit subsection
+* **Switch**: `single-subsection`
+
+#### Mixed Compact and Regular Lists
+* **Description**: Warns if both `compactitem` and `itemize` (or `compactenum` and `enumerate`) are used
+* **Switch**: `mixed-compact`
+
+#### Center instead of \centering in Floats
+* **Description**: Warns if float contents are centered with the `center` environment instead of `\centering`
+* **Switch**: `float-center`
+
+#### Usage of eqnarray instead of align Environment
+* **Description**: Warns if the `eqnarray` environment is used instead of the `align` environment
+* **Switch**: `eqnarray`
+
+#### Section-Title Capitalization
+* **Description**: Warns if the capitalization for section titles is wrong
+* **Switch**: `capitalization`
+
+
+### Style
+This category includes warning of things that are discouraged or wrong for the style of an academic paper.
+
+#### Wrong Appendix
+* **Description**: Warns if the `appendix` environment is used instead of `\appendix`
+* **Switch**: `appendix`
+
+#### Non-generic Dimensions
+* **Description**: Warns if dimension macros are used that do not always work, such as \linewidth or \textwidth
+* **Switch**: `dimensions`
+
+#### Usage of "etc"
+* **Description**: Warns if "etc" is used
+* **Switch**: `etc`
+
+#### Enlarged Tables
+* **Description**: Warns if `resizebox` (instead of `adjustbox`) is used for tables
+* **Switch**: `resize-table`
+
+#### Caption above Tables
+* **Description**: Warns if the caption for a table is not above the table
+* **Switch**: `table-top-caption`
+
+#### Figure Alignment
+* **Description**: Warns if a figure has no explicit alignment
+* **Switch**: `figure-alignment`
+
+#### Table Alignment
+* **Description**: Warns if a table has no explicit alignment
+* **Switch**: `table-alignment`
+
+#### Listing Alignment
+* **Description**: Warns if a listing has no explicit alignment
+* **Switch**: `listing-alignment`
+
+
+### References
+This category includes warnings for everything related to (cross-)references. 
+
+#### Figure without Label
+* **Description**: Warns if a figure has no label
+* **Switch**: `figure-label`
+
+#### Table without Label
+* **Description**: Warns if a table has no label
+* **Switch**: `table-label`
+
+#### Listing without Label
+* **Description**: Warns if a listing has no label
+* **Switch**: `listing-label`
+
+#### Switched Order of Label and Caption in Figure
+* **Description**: Warns if the label is defined before the caption inside a figure
+* **Switch**: `figure-caption-order`
+
+#### Switched Order of Label and Caption in Table
+* **Description**: Warns if the label is defined before the caption inside a table
+* **Switch**: `table-caption-order`
+
+#### Switched Order of Label and Caption in Listing
+* **Description**: Warns if the label is defined before the caption inside a listing
+* **Switch**: `listing-caption-order`
+
+#### Non-referenced Labels
+* **Description**: Warns if there is a label defined that is never referenced
+* **Switch**: `label-referenced`
+
+#### Tabular not in Table Environment
+* **Description**: Warns if a `tabular` environment is not within the `table` float
+* **Switch**: `tabular-float`
+
+#### TikZ not in Figure Environment
+* **Description**: Warns if a `tikzpicture` environment is not within the `figure` float
+* **Switch**: `tikz-float`
+
+#### Code Listing not in Listing Environment
+* **Description**: Warns if an `lstlisting` environment is not within the `listing` float
+* **Switch**: `listing-float`
+
