@@ -1,11 +1,25 @@
 import re
 import sys
 
-tex = open(sys.argv[1]).read()
+
+def usage():
+    print("%s <file.tex> [-x <excluded-switch1>] [-i <included-switch1>] [-i/x <switch n, evaluated in order of specification>]" % sys.argv[0])
+    sys.exit(1)
+
+if len(sys.argv) < 2:
+    usage()
+
+try:
+    tex = open(sys.argv[1]).read()
+except:
+    print("Could not open '%s'" % sys.argv[1])
+    sys.exit(1)
+
 tex_lines = tex.split("\n")
 tex_lines_clean = tex.split("\n")
 in_env = {}
 envs = {}
+
 
 def preprocess():
     env = list(set(re.findall("\\\\begin\{(\\w+)\}", tex)))
@@ -192,7 +206,10 @@ def check_notes():
     for i, l in enumerate(tex_lines):
         if "\\note" in l:
             warns.append((i, "\\note found", (l.index("\\note"), l.index("\\note") + 5)))
+        if "\\todo" in l:
+            warns.append((i, "\\todo found", (l.index("\\todo"), l.index("\\todo") + 5)))
     return warns
+
 
 def check_math_numbers():
     warns = []
@@ -426,6 +443,7 @@ def check_punctuation_end_of_line():
         if len(sl) < 10: continue
         if len(sl.split(" ")) < 8: continue
         if in_any_float(i): continue
+        if "lstlisting" in in_env and in_env["lstlisting"][i]: continue
         if sl.startswith("\\") or sl.startswith("%"): continue
         if sl.endswith("\\\\") or sl.endswith("}"): continue
         if sl.endswith(".") or sl.endswith("!") or sl.endswith("?") or sl.endswith(":") or sl.endswith(";"): continue
@@ -510,81 +528,183 @@ def check_eqnarray():
     return warns
 
 
-def print_warnings(warn):
+def print_warnings(warn, output = True):
     warnings = 0
     sorted_warn = sorted(warn, key=lambda tup: tup[0])
     for w in sorted_warn:
         if w[0] != -1 and tex_lines[w[0]].strip().startswith("%"):
             continue
 
-        print("\033[33mWarning %d\033[0m: " % (warnings + 1), end = "")
+        if output: print("\033[33mWarning %d\033[0m: " % (warnings + 1), end = "")
         warnings += 1
         if w[0] != -1:
-            print("Line %d: %s" % (w[0] + 1, w[1]))
+            if output: print("Line %d: %s" % (w[0] + 1, w[1]))
         else:
-            print(w[1])
+            if output: print(w[1])
         if len(w) > 2:
-            print("    %s" % tex_lines[w[0]].replace("\t", " "))
-            print("    %s\033[33m%s\033[0m" % (" " * w[2][0], "^" * (w[2][1] - w[2][0])))
+            if output: print("    %s" % tex_lines[w[0]].replace("\t", " "))
+            if output: print("    %s\033[33m%s\033[0m" % (" " * w[2][0], "^" * (w[2][1] - w[2][0])))
     return warnings
 
-preprocess()
+
+CATEGORY_GENERAL = 1
+CATEGORY_TYPOGRAPHY = 2
+CATEGORY_VISUAL = 4
+CATEGORY_STYLE = 8
+CATEGORY_REFERENCE = 16
 
 checks = [
-    check_space_before_cite,
-    check_figure_alignment,
-    check_table_alignment,
-    check_listing_alignment,
-    check_figure_has_label,
-    check_table_has_label,
-    check_listing_has_label,
-    check_figure_has_caption,
-    check_table_has_caption,
-    check_listing_has_caption,
-    check_no_resizebox_for_tables,
-    check_weird_units,
-    check_figure_caption_label_order,
-    check_table_caption_label_order,
-    check_listing_caption_label_order,
-    check_todos,
-    check_notes,
-    check_math_numbers,
-    check_large_numbers_without_si,
-    check_listing_in_correct_float,
-    check_tabular_in_correct_float,
-    check_tikz_in_correct_float,
-    check_comment_has_space,
-    check_percent_without_siunix,
-    check_short_form,
-    check_labels_referenced,
-    check_section_capitalization,
-    check_quotation,
-    check_hline_in_table,
-    check_space_before_punctuation,
-    check_headers_without_text,
-    check_one_sentence_paragraphs,
-    check_multiple_sentences_per_line,
-    check_unbalanced_brackets,
-    check_and_or,
-    check_ellipsis,
-    check_etc,
-    check_punctuation_end_of_line,
-    check_footnote,
-    check_table_vertical_lines,
-    check_table_top_caption,
-    check_will,
-    check_subsection_count,
-    check_mixed_compact_and_item,
-    check_center_in_float,
-    check_appendix,
-    check_eqnarray
+    (check_space_before_cite,           CATEGORY_TYPOGRAPHY, "cite-space"),
+    (check_figure_alignment,            CATEGORY_STYLE,      "figure-alignment"),
+    (check_table_alignment,             CATEGORY_STYLE,      "table-alignment"),
+    (check_listing_alignment,           CATEGORY_STYLE,      "listing-alignment"),
+    (check_figure_has_label,            CATEGORY_REFERENCE,  "figure-label"),
+    (check_table_has_label,             CATEGORY_REFERENCE,  "table-label"),
+    (check_listing_has_label,           CATEGORY_REFERENCE,  "listing-label"),
+    (check_figure_has_caption,          CATEGORY_STYLE,      "figure-caption"),
+    (check_table_has_caption,           CATEGORY_STYLE,      "table-caption"),
+    (check_listing_has_caption,         CATEGORY_STYLE,      "listing-caption"),
+    (check_no_resizebox_for_tables,     CATEGORY_STYLE,      "resize-table"),
+    (check_weird_units,                 CATEGORY_STYLE,      "dimensions"),
+    (check_figure_caption_label_order,  CATEGORY_REFERENCE,  "figure-caption-order"),
+    (check_table_caption_label_order,   CATEGORY_REFERENCE,  "table-caption-order"),
+    (check_listing_caption_label_order, CATEGORY_REFERENCE,  "listing-caption-order"),
+    (check_todos,                       CATEGORY_GENERAL,    "todo"),
+    (check_notes,                       CATEGORY_GENERAL,    "note"),
+    (check_math_numbers,                CATEGORY_TYPOGRAPHY, "math-numbers"),
+    (check_large_numbers_without_si,    CATEGORY_TYPOGRAPHY, "si"),
+    (check_listing_in_correct_float,    CATEGORY_REFERENCE,  "listing-float"),
+    (check_tabular_in_correct_float,    CATEGORY_REFERENCE,  "tabular-float"),
+    (check_tikz_in_correct_float,       CATEGORY_REFERENCE,  "tikz-float"),
+    (check_comment_has_space,           CATEGORY_TYPOGRAPHY, "comment-space"),
+    (check_percent_without_siunix,      CATEGORY_TYPOGRAPHY, "percentage"),
+    (check_short_form,                  CATEGORY_GENERAL,    "short-form"),
+    (check_labels_referenced,           CATEGORY_REFERENCE,  "label-referenced"),
+    (check_section_capitalization,      CATEGORY_VISUAL,     "capitalization"),
+    (check_quotation,                   CATEGORY_TYPOGRAPHY, "quotes"),
+    (check_hline_in_table,              CATEGORY_VISUAL,     "hline"),
+    (check_space_before_punctuation,    CATEGORY_TYPOGRAPHY, "punctuation-space"),
+    (check_headers_without_text,        CATEGORY_VISUAL,     "two-header"),
+    (check_one_sentence_paragraphs,     CATEGORY_VISUAL,     "single-sentence"),
+    (check_multiple_sentences_per_line, CATEGORY_GENERAL,    "multiple-sentences"),
+    (check_unbalanced_brackets,         CATEGORY_TYPOGRAPHY, "unbalanced-brackets"),
+    (check_and_or,                      CATEGORY_TYPOGRAPHY, "and-or"),
+    (check_ellipsis,                    CATEGORY_TYPOGRAPHY, "ellipsis"),
+    (check_etc,                         CATEGORY_STYLE,      "etc"),
+    (check_punctuation_end_of_line,     CATEGORY_TYPOGRAPHY, "punctuation"),
+    (check_footnote,                    CATEGORY_TYPOGRAPHY, "footnote"),
+    (check_table_vertical_lines,        CATEGORY_VISUAL,     "vline"),
+    (check_table_top_caption,           CATEGORY_STYLE,      "table-top-caption"),
+    (check_will,                        CATEGORY_GENERAL,    "will"),
+    (check_subsection_count,            CATEGORY_VISUAL,     "single-subsection"),
+    (check_mixed_compact_and_item,      CATEGORY_VISUAL,     "mixed-compact"),
+    (check_center_in_float,             CATEGORY_VISUAL,     "float-center"),
+    (check_appendix,                    CATEGORY_STYLE,      "appendix"),
+    (check_eqnarray,                    CATEGORY_VISUAL,     "eqnarray")
 ]
 
-warnings = []
-for c in checks:
-    warnings += c()
+category_switches = [
+    ("all",        CATEGORY_GENERAL | CATEGORY_REFERENCE | CATEGORY_STYLE | CATEGORY_TYPOGRAPHY | CATEGORY_VISUAL),
+    ("general",    CATEGORY_GENERAL),
+    ("reference",  CATEGORY_REFERENCE),
+    ("style",      CATEGORY_STYLE),
+    ("typography", CATEGORY_TYPOGRAPHY),
+    ("visual",     CATEGORY_VISUAL)
+]
 
-nr_warnings = print_warnings(warnings)
 
-print("")
-print("%d warnings printed" % nr_warnings)
+def switch_exists(s):
+    switches = [x[0] for x in category_switches] + [x[2] for x in checks]
+    return s in switches
+
+
+def add_categories(cat, new_cat):
+    if type(new_cat) is str:
+        full_cat = [x[0] for x in category_switches]
+        if new_cat in full_cat:
+            # full category, add everythingt that is not already there
+            idx = full_cat.index(new_cat)
+            new_cat = category_switches[idx][1]
+        else:
+            cat.add(new_cat)
+    if type(new_cat) is int:
+        for cats in checks:
+            if new_cat & cats[1]:
+                cat.add(cats[2])
+
+        
+def remove_categories(cat, rem_cat):
+    if type(rem_cat) is str:
+        full_cat = [x[0] for x in category_switches]
+        if rem_cat in full_cat:
+            # full category, add everythingt that is not already there
+            idx = full_cat.index(rem_cat)
+            rem_cat = category_switches[idx][1]
+        else:
+            if rem_cat in cat:
+                cat.remove(rem_cat)
+    if type(rem_cat) is int:
+        for cats in checks:
+            if (rem_cat & cats[1]) and cats[2] in cat:
+                cat.remove(cats[2])
+
+
+def main():
+    preprocess()
+
+    # -x to exclude, -i to include
+    used_categories = set()
+
+    idx = 1
+    has_rules = False
+    while idx < len(sys.argv):
+        arg = sys.argv[idx]
+        if arg == "-x":
+            if idx < len(sys.argv):
+                if switch_exists(sys.argv[idx + 1]):
+                    remove_categories(used_categories, sys.argv[idx + 1])
+                    idx += 1
+                    has_rules = True
+                else:
+                    print("Unknown switch '%s'" % sys.argv[idx + 1])
+                    usage()
+            else:
+                print("Missing switch after -x")
+                usage()
+
+        if arg == "-i":
+            if idx < len(sys.argv):
+                if switch_exists(sys.argv[idx + 1]):
+                    add_categories(used_categories, sys.argv[idx + 1])
+                    idx += 1
+                    has_rules = True
+                else:
+                    print("Unknown switch '%s'" % sys.argv[idx + 1])
+                    usage()
+            else:
+                print("Missing switch after -i")
+                usage()
+        idx += 1
+
+    if not has_rules:
+        add_categories(used_categories, "all")
+
+    warnings = []
+    suppressed = []
+    for c in checks:
+        add_warn = c[0]()
+        if c[2] in used_categories:
+            warnings += add_warn
+        else:
+            suppressed += add_warn
+
+    nr_warnings = print_warnings(warnings)
+    nr_suppressed = print_warnings(suppressed, output = False)
+
+    print("")
+    print("%d warnings printed; %d suppressed warnings" % (nr_warnings, nr_suppressed))
+
+
+if __name__ == "__main__":
+    main()
+
