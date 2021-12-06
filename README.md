@@ -4,12 +4,14 @@ This script checks for common mistakes in LaTeX source files of scientific paper
 
 ## Usage
 
-    python3 paperlint.py <file.tex> [-i/x <include/exclude switch>]
+    python3 paperlint.py <file.tex> [-i/x <include/exclude switch>] [--error]
     
 By default, all rules are used for checking the document.
 The switches can be configured with the `-x` and `-i` parameters to exclude and include entire categories of rules or single rules. 
 The include/exclude switches are evaluated in the order they are specified. 
 For example, `-i typography` only activates the typography rules, whereas `-i all -x typography -i cite-space` enables all rules without the typography rules, but enables the `cite-space` rule from the typography category. 
+
+If `--error` is provided, the tool exits with error code 1 if there are warnings.
 
 ## Warnings
 
@@ -57,11 +59,11 @@ This category includes typography-related issues, such as wrong punctuation (swi
 * **Switch**: `math-numbers`
 
 #### Large Numbers without siunit
-* **Description**: Warns if large numbers are not formuatted with the `sinuit` package
+* **Description**: Warns if large numbers are not formatted with the `sinuit` package
 * **Switch**: `si`
 
 #### Percentage without siunit
-* **Description**: Warns if percentages are not formuatted with the `siunit` package
+* **Description**: Warns if percentages are not formatted with the `siunit` package
 * **Switch**: `percentage`
 
 #### Wrong Quotation Marks

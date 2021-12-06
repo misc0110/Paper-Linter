@@ -3,7 +3,7 @@ import sys
 
 
 def usage():
-    print("%s <file.tex> [-x <excluded-switch1>] [-i <included-switch1>] [-i/x <switch n, evaluated in order of specification>]" % sys.argv[0])
+    print("%s <file.tex> [-x <excluded-switch1>] [-i <included-switch1>] [-i/x <switch n, evaluated in order of specification>] [--error]" % sys.argv[0])
     sys.exit(1)
 
 if len(sys.argv) < 2:
@@ -661,6 +661,7 @@ def main():
 
     idx = 1
     has_rules = False
+    exit_code = False
     while idx < len(sys.argv):
         arg = sys.argv[idx]
         if arg == "-x":
@@ -688,6 +689,9 @@ def main():
             else:
                 print("Missing switch after -i")
                 usage()
+        
+        if arg == "--error":
+            exit_code = True
         idx += 1
 
     if not has_rules:
@@ -707,6 +711,8 @@ def main():
 
     print("")
     print("%d warnings printed; %d suppressed warnings" % (nr_warnings, nr_suppressed))
+    if exit_code:
+        sys.exit(1 if nr_warnings > 0 else 0)
 
 
 if __name__ == "__main__":
