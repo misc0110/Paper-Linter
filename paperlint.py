@@ -279,15 +279,19 @@ def check_short_form():
 
 def check_labels_referenced():
     warns = []
-    labels = re.findall("\\\\label\{([^\\}]+)\}", tex)
+    labels = [] #re.findall("\\\\label\{([^\\}]+)\}", tex)
+    for i, l in enumerate(tex_lines_clean):
+        lab = re.search("\\\\label\{([^\\}]+)\}", l)
+        if lab:
+            labels.append((lab.group(1), i, lab.span()))
     for lab in labels:
         found = False
         for i, l in enumerate(tex_lines):
-            if ("ref{%s}" % lab) in l:
+            if ("ref{%s}" % lab[0]) in l:
                 found = True
                 break
         if not found:
-            warns.append((-1, "Label %s is not referenced" % lab))
+            warns.append((lab[1], "Label %s is not referenced" % lab[0], lab[2]))
     return warns
 
 
