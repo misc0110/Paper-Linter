@@ -2,9 +2,18 @@
 
 This script checks for common mistakes in LaTeX source files of scientific papers. 
 
+## Usage
+
+    python3 texlint.py <file.tex> [-i/x <include/exclude switch>]
+    
+By default, all rules are used for checking the document.
+The switches can be configured with the `-x` and `-i` parameters to exclude and include entire categories of rules or single rules. 
+The include/exclude switches are evaluated in the order they are specified. 
+For example, `-i typography` only activates the typography rules, whereas `-i all -x typography -i cite-space` enables all rules without the typography rules, but enables the `cite-space` rule from the typography category. 
+
 ## Warnings
 
-Warnings are grouped in different categories:
+Warnings are grouped in five different categories:
 
 * General
 * Typography
@@ -13,7 +22,7 @@ Warnings are grouped in different categories:
 * References
 
 ### General
-This category includes general mistakes and discouraged things.
+This category includes general mistakes and discouraged things (switch `general`).
 
 #### TODOs
 * **Description**: Warns if the string "TODO" appears in the paper
@@ -37,7 +46,7 @@ This category includes general mistakes and discouraged things.
 
 
 ### Typography
-This category includes typography-related issues, such as wrong punctuation.
+This category includes typography-related issues, such as wrong punctuation (switch `typography`).
 
 #### No Space before Citation
 * **Description**: Warns if there is no space before a `\cite` command
@@ -89,7 +98,7 @@ This category includes typography-related issues, such as wrong punctuation.
 
 
 ### Visual
-This category includes warning regarding code that is visually not optimal and can be improved to make the paper look better
+This category includes warning regarding code that is visually not optimal and can be improved to make the paper look better (switch `visual`).
 
 #### hlines in Tables
 * **Description**: Warns if `\hline` is used in tables instead of `\toprule`, `\midrule`, and `\bottomrule`
@@ -129,7 +138,7 @@ This category includes warning regarding code that is visually not optimal and c
 
 
 ### Style
-This category includes warning of things that are discouraged or wrong for the style of an academic paper.
+This category includes warning of things that are discouraged or wrong for the style of an academic paper (switch `style`).
 
 #### Wrong Appendix
 * **Description**: Warns if the `appendix` environment is used instead of `\appendix`
@@ -165,7 +174,7 @@ This category includes warning of things that are discouraged or wrong for the s
 
 
 ### References
-This category includes warnings for everything related to (cross-)references. 
+This category includes warnings for everything related to (cross-)references (switch `references`).
 
 #### Figure without Label
 * **Description**: Warns if a figure has no label
