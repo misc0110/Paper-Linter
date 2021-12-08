@@ -174,6 +174,9 @@ This category includes warning of things that are discouraged or wrong for the s
 * **Description**: Warns if a listing has no explicit alignment
 * **Switch**: `listing-alignment`
 
+#### Non-inclusive Wording
+* **Description**: Warns if non-inclusive terms are used (based on the [ACM Guidlines](https://www.acm.org/diversity-inclusion/words-matter))
+* **Switch**: `inclusion`
 
 ### References
 This category includes warnings for everything related to (cross-)references (switch `references`).

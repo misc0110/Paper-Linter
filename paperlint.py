@@ -533,6 +533,39 @@ def check_eqnarray():
     return warns
 
 
+def check_acm_pc():
+    # based on https://www.acm.org/diversity-inclusion/words-matter
+    warns = []
+    replace = [
+        ("\\bsupremacy\\b", "advantage"),
+        ("\\bmaster\\b", "main/primary/leader/parent/host"),
+        ("\\bslave\\b", "secondary/replica/follower/child/worker/client"),
+        ("\\bhe\\b", "they"),
+        ("\\bshe\\b", "they"),
+        ("\\bhis\\b", "their"),
+        ("\\bhers?\\b", "their/them"),
+        ("\\bhim\\b", "them"),
+        ("\\bmale\\bconnector\\b", "plug"),
+        ("\\bfemale\\bconnector\\b", "socket"),
+        ("\\bblind\\b", "anonymous"),
+        ("\\bblack\\-?\\s?list\\b", "blocklist/unapprovedlist"),
+        ("\\bwhite\\-?\\s?list\\b", "allowlist/approvedlist"),
+        ("\\bblack\\-?\\s?hat\\b", "unethical attacker/hostile force"),
+        ("\\bwhite\\-?\\s?hat\\b", "ethical attacker/friendly force"),
+        ("\\bblack\\-?\\s?box\\b", "opaque box"),
+        ("\\bwhite\\-?\\s?box\\b", "clear box"),
+        ("\\baverage\\s?user\\b", "common/standard/typical user"),
+        ("\\babort\\s?child\\b", "cancel/force quit/stop/end/finalize"),
+        ("\\bterminate\\s?child\\b", "cancel/force quit/stop/end/finalize")
+    ]
+    for i, l in enumerate(tex_lines):
+        for r in replace:
+            w = re.search(r[0], l)
+            if w:
+                warns.append((i, "Discouraged term \"%s\", consider replacing with \"%s\"" % (w.group(), r[1]), w.span()))
+    return warns
+
+
 def print_warnings(warn, output = True):
     warnings = 0
     sorted_warn = sorted(warn, key=lambda tup: tup[0])
@@ -605,7 +638,8 @@ checks = [
     (check_mixed_compact_and_item,      CATEGORY_VISUAL,     "mixed-compact"),
     (check_center_in_float,             CATEGORY_VISUAL,     "float-center"),
     (check_appendix,                    CATEGORY_STYLE,      "appendix"),
-    (check_eqnarray,                    CATEGORY_VISUAL,     "eqnarray")
+    (check_eqnarray,                    CATEGORY_VISUAL,     "eqnarray"),
+    (check_acm_pc,                      CATEGORY_STYLE,      "inclusion")
 ]
 
 category_switches = [
