@@ -175,7 +175,7 @@ This category includes warning of things that are discouraged or wrong for the s
 * **Switch**: `listing-alignment`
 
 #### Non-inclusive Wording
-* **Description**: Warns if non-inclusive terms are used (based on the [ACM Guidlines](https://www.acm.org/diversity-inclusion/words-matter))
+* **Description**: Warns if non-inclusive terms are used (based on the [ACM Guidelines](https://www.acm.org/diversity-inclusion/words-matter))
 * **Switch**: `inclusion`
 
 ### References
