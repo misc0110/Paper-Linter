@@ -178,6 +178,11 @@ This category includes warning of things that are discouraged or wrong for the s
 * **Description**: Warns if non-inclusive terms are used (based on the [ACM Guidelines](https://www.acm.org/diversity-inclusion/words-matter))
 * **Switch**: `inclusion`
 
+#### Citation as Noun
+* **Description**: Warns if a citation is used as a noun
+* **Switch**: `cite-noun`
+
+
 ### References
 This category includes warnings for everything related to (cross-)references (switch `references`).
 
@@ -221,3 +226,6 @@ This category includes warnings for everything related to (cross-)references (sw
 * **Description**: Warns if an `lstlisting` environment is not within the `listing` float
 * **Switch**: `listing-float`
 
+#### Duplicate Keys in Citations
+* **Description**: Warns if a `cite` command has duplicate entries
+* **Switch**: `cite-duplicate`

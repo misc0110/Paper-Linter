@@ -566,6 +566,32 @@ def check_acm_pc():
     return warns
 
 
+def check_cite_noun():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        ap = re.search("\\b(in|from|by|and|or)[\\s~]\\\\cite", l.lower())
+        if ap:
+            warns.append((i, "Citation is used as noun", ap.span()))
+        ap = re.search("^\\s*\\\\cite", l)
+        if ap:
+            warns.append((i, "Citation at the beginning of a sentence (probably as noun)", ap.span()))
+    return warns
+
+
+def check_cite_duplicate():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        cites = re.findall("\\\\(no)?citeA?\\{([^\\}]+)\\}", l)
+        for cite in cites:
+            c = [x.strip().split(",") for x in cite]
+            c = [item for sublist in c for item in sublist]
+            if len(c) != len(list(set(c))):
+                seen = set()
+                dupes = [x for x in c if x in seen or seen.add(x)]
+                warns.append((i, "Duplicate citation key: %s" % ", ".join(dupes), re.search(dupes[0], l).span()))
+    return warns
+    
+
 def print_warnings(warn, output = True):
     warnings = 0
     sorted_warn = sorted(warn, key=lambda tup: tup[0])
@@ -639,7 +665,9 @@ checks = [
     (check_center_in_float,             CATEGORY_VISUAL,     "float-center"),
     (check_appendix,                    CATEGORY_STYLE,      "appendix"),
     (check_eqnarray,                    CATEGORY_VISUAL,     "eqnarray"),
-    (check_acm_pc,                      CATEGORY_STYLE,      "inclusion")
+    (check_acm_pc,                      CATEGORY_STYLE,      "inclusion"),
+    (check_cite_noun,                   CATEGORY_STYLE,      "cite-noun"),
+    (check_cite_duplicate,              CATEGORY_REFERENCE,  "cite-duplicate")
 ]
 
 category_switches = [
