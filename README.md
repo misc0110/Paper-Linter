@@ -98,6 +98,10 @@ This category includes typography-related issues, such as wrong punctuation (swi
 * **Description**: Warns if there is no space before a comment
 * **Switch**: `comment-space`
 
+#### Brackets with Wrong Spacing
+* **Description**: Warns if the spacing for brackets are wrong, i.e., if there is no space before an opening bracket, a space after an opening bracket, or a space before a closing bracket
+* **Switch**: `bracket-spacing`
+
 
 ### Visual
 This category includes warning regarding code that is visually not optimal and can be improved to make the paper look better (switch `visual`).
@@ -181,6 +185,10 @@ This category includes warning of things that are discouraged or wrong for the s
 #### Citation as Noun
 * **Description**: Warns if a citation is used as a noun
 * **Switch**: `cite-noun`
+
+#### Sentence starting with a Conjunction 
+* **Description**: Warns if a sentence starts with a conjunction ("And", "But", "Or")
+* **Switch**: `conjunction-start`
 
 
 ### References

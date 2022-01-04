@@ -592,6 +592,34 @@ def check_cite_duplicate():
     return warns
     
 
+def check_conjunction_start():
+    warns = []
+    for i, l in enumerate(tex_lines_clean):
+        p = re.search("[\\.!?]\\s+(And|Or|But)[\\s,]", l.rstrip())
+        if p:
+            warns.append((i, "Starting a sentence with a conjunction is discouraged", p.span()))
+        p = re.search("^(And|Or|But)[\\s,]", l.rstrip())
+        if p:
+            warns.append((i, "Starting a sentence with a conjunction is discouraged", p.span()))
+    return warns
+
+
+def check_brackets_space():
+    warns = []
+    for i, l in enumerate(tex_lines_clean):
+        if in_code(i): continue
+        p = re.search("[^\\s\\{]\\(", l.rstrip())
+        if p:
+            warns.append((i, "There must be a space before an opening parenthesis", p.span()))
+        p = re.search("\\(\\s", l.rstrip())
+        if p:
+            warns.append((i, "There must be no space after an opening parenthesis", p.span()))
+        p = re.search("\\s\\)", l.rstrip())
+        if p:
+            warns.append((i, "There must be no space before a closin parenthesis", p.span()))
+    return warns  
+
+
 def print_warnings(warn, output = True):
     warnings = 0
     sorted_warn = sorted(warn, key=lambda tup: tup[0])
@@ -667,7 +695,9 @@ checks = [
     (check_eqnarray,                    CATEGORY_VISUAL,     "eqnarray"),
     (check_acm_pc,                      CATEGORY_STYLE,      "inclusion"),
     (check_cite_noun,                   CATEGORY_STYLE,      "cite-noun"),
-    (check_cite_duplicate,              CATEGORY_REFERENCE,  "cite-duplicate")
+    (check_cite_duplicate,              CATEGORY_REFERENCE,  "cite-duplicate"),
+    (check_conjunction_start,           CATEGORY_STYLE,      "conjunction-start"),
+    (check_brackets_space,              CATEGORY_TYPOGRAPHY, "bracket-spacing")
 ]
 
 category_switches = [
