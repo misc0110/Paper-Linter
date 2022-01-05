@@ -315,7 +315,7 @@ def check_section_capitalization():
 def check_quotation():
     warns = []
     for i, l in enumerate(tex_lines_clean):
-        ws = re.search("\"\\w+", l)
+        ws = re.search("[^\\\\]\"\\w+", l)
         we = re.search("\\w+\"", l)
         if (ws or we) and not in_code(i):
             warns.append((i, "Wrong quotation, use `` and '' instead of \"", ws.span() if ws else we.span()))
@@ -616,9 +616,36 @@ def check_brackets_space():
             warns.append((i, "There must be no space after an opening parenthesis", p.span()))
         p = re.search("\\s\\)", l.rstrip())
         if p:
-            warns.append((i, "There must be no space before a closin parenthesis", p.span()))
+            warns.append((i, "There must be no space before a closing parenthesis", p.span()))
     return warns  
 
+
+def check_acronym_capitalization():
+    warns = []
+    acronyms = []
+    acronym_first = {}
+    for i, l in enumerate(tex_lines_clean):
+        if in_code(i): continue
+        p = re.search("\\b[A-Z]{3,}\\b", l)
+        if p and p.group() not in acronyms: 
+            acronyms.append(p.group())
+            acronym_first[p.group()] = i
+    for i, l in enumerate(tex_lines_clean):
+        if in_code(i): continue
+        for a in acronyms:
+            p = re.search("\\b%s\\b" % a, l.upper())
+            if p:
+                found = l[p.span()[0]:p.span()[1]]
+                if found[-1] == 's': # ignore plural
+                    found = found[:-1]
+                if l[:p.span()[0]].count("{") != l[:p.span()[0]].count("}"): # probably inside a reference or label
+                    continue
+                if "@" in l: # probably a mail address
+                    continue
+                if not found.isupper():
+                    warns.append((i, "(Potential) acronym with wrong capitalization (first defined in Line %d)" % (acronym_first[a] + 1), p.span()))
+    return warns  
+    
 
 def print_warnings(warn, output = True):
     warnings = 0
@@ -697,7 +724,8 @@ checks = [
     (check_cite_noun,                   CATEGORY_STYLE,      "cite-noun"),
     (check_cite_duplicate,              CATEGORY_REFERENCE,  "cite-duplicate"),
     (check_conjunction_start,           CATEGORY_STYLE,      "conjunction-start"),
-    (check_brackets_space,              CATEGORY_TYPOGRAPHY, "bracket-spacing")
+    (check_brackets_space,              CATEGORY_TYPOGRAPHY, "bracket-spacing"),
+    (check_acronym_capitalization,      CATEGORY_TYPOGRAPHY, "acronym-capitalization")
 ]
 
 category_switches = [
