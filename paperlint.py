@@ -608,7 +608,7 @@ def check_brackets_space():
     warns = []
     for i, l in enumerate(tex_lines_clean):
         if in_code(i): continue
-        p = re.search("[^\\s\\{]\\(", l.rstrip())
+        p = re.search("[^\\s\\{~]\\(", l.rstrip())
         if p:
             warns.append((i, "There must be a space before an opening parenthesis", p.span()))
         p = re.search("\\(\\s", l.rstrip())
@@ -642,6 +642,8 @@ def check_acronym_capitalization():
                     continue
                 if "@" in l: # probably a mail address
                     continue
+                if p.span()[0] > 0 and l[p.span()[0] - 1] == '\\':
+                    continue # probably a macro
                 if not found.isupper():
                     warns.append((i, "(Potential) acronym with wrong capitalization (first defined in Line %d)" % (acronym_first[a] + 1), p.span()))
     return warns  
