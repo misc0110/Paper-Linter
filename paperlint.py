@@ -627,7 +627,10 @@ def check_acronym_capitalization():
     for i, l in enumerate(tex_lines_clean):
         if in_code(i): continue
         p = re.search("\\b[A-Z]{3,}\\b", l)
-        if p and p.group() not in acronyms: 
+        if p and p.group() not in acronyms:
+            pos = p.span()[0]
+            if pos > 0 and l[pos - 1] == '\\':
+                continue
             acronyms.append(p.group())
             acronym_first[p.group()] = i
     for i, l in enumerate(tex_lines_clean):
