@@ -650,7 +650,27 @@ def check_acronym_capitalization():
                 if not found.isupper():
                     warns.append((i, "(Potential) acronym with wrong capitalization (first defined in Line %d)" % (acronym_first[a] + 1), p.span()))
     return warns  
-    
+
+def check_numeral():
+    warns = []
+    replace = [
+        ("\\bthree\\b", "3"),
+        ("\\bfour\\b", "4"),
+        ("\\bfive\\b", "5"),
+        ("\\bsix\\b", "6"),
+        ("\\bseven\\b", "7"),
+        ("\\beight\\b", "8"),
+        ("\\bnine\\b", "9"),
+        ("\\bten\\b", "10"),
+        ("\\beleven\\b", "11"),
+        ("\\btwelve\\b", "12")
+    ]
+    for i, l in enumerate(tex_lines):
+        for r in replace:
+            w = re.search(r[0], l)
+            if w:
+                warns.append((i, "Numeral \"%s\" should be replaced with \"%s\"" % (w.group(), r[1]), w.span()))
+    return warns
 
 def print_warnings(warn, output = True):
     warnings = 0
@@ -730,7 +750,8 @@ checks = [
     (check_cite_duplicate,              CATEGORY_REFERENCE,  "cite-duplicate"),
     (check_conjunction_start,           CATEGORY_STYLE,      "conjunction-start"),
     (check_brackets_space,              CATEGORY_TYPOGRAPHY, "bracket-spacing"),
-    (check_acronym_capitalization,      CATEGORY_TYPOGRAPHY, "acronym-capitalization")
+    (check_acronym_capitalization,      CATEGORY_TYPOGRAPHY, "acronym-capitalization"),
+    (check_numeral,                     CATEGORY_GENERAL,    "numeral")
 ]
 
 category_switches = [

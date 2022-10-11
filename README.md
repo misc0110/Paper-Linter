@@ -46,6 +46,10 @@ This category includes general mistakes and discouraged things (switch `general`
 * **Description**: Warns if short forms, such as "can't", "shouldn't", etc., are used
 * **Switch**: `short-form`
 
+#### Numerals
+* **Description**: Warns if numbers 3 to 12 are written as words instead of numbers
+* **Switch**: `numeral`
+
 
 ### Typography
 This category includes typography-related issues, such as wrong punctuation (switch `typography`).
