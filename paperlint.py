@@ -828,6 +828,10 @@ def main():
     idx = 1
     has_rules = False
     exit_code = False
+    
+    # -x to exclude, -i to include
+    used_categories = set()
+        
     while idx < len(sys.argv):
         arg = sys.argv[idx]
         if arg == "-x":
@@ -860,19 +864,14 @@ def main():
             exit_code = True
         idx += 1
 
-
+    if not has_rules:
+        add_categories(used_categories, "all")
 
     for file in tex_files:
         next_file(file)
         print("Inspecting file \033[94m'%s'\033[0m" % file)
         
         preprocess()
-
-        # -x to exclude, -i to include
-        used_categories = set()
-
-        if not has_rules:
-            add_categories(used_categories, "all")
 
         warnings = []
         suppressed = []
