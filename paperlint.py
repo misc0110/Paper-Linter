@@ -5,7 +5,7 @@ import os
 
 
 def usage():
-    print("%s <file/path> [-x <excluded-switch1>] [-i <included-switch1>] [-i/x <switch n, evaluated in order of specification>] [--error]" % sys.argv[0])
+    print("%s <file.tex/path> [-x <excluded-switch1>] [-i <included-switch1>] [-i/x <switch n, evaluated in order of specification>] [--error]" % sys.argv[0])
     sys.exit(1)
 
 if len(sys.argv) < 2:
