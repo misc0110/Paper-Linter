@@ -4,8 +4,9 @@ This script checks for common mistakes in LaTeX source files of scientific paper
 
 ## Usage
 
-    python3 paperlint.py <file.tex> [-i/x <include/exclude switch>] [--error]
-    
+    python3 paperlint.py <file.tex/path> [-i/x <include/exclude switch>] [--error]
+
+Provide either a single .tex file to check or a path to recursively check all .tex files in that directory!
 By default, all rules are used for checking the document.
 The switches can be configured with the `-x` and `-i` parameters to exclude and include entire categories of rules or single rules. 
 The include/exclude switches are evaluated in the order they are specified. 
