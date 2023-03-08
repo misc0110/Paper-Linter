@@ -1,25 +1,45 @@
 #!/usr/bin/env python3
 import re
 import sys
+import os
 
 
 def usage():
-    print("%s <file.tex> [-x <excluded-switch1>] [-i <included-switch1>] [-i/x <switch n, evaluated in order of specification>] [--error]" % sys.argv[0])
+    print("%s <file/path> [-x <excluded-switch1>] [-i <included-switch1>] [-i/x <switch n, evaluated in order of specification>] [--error]" % sys.argv[0])
     sys.exit(1)
 
 if len(sys.argv) < 2:
     usage()
+    
 
-try:
-    tex = open(sys.argv[1]).read()
-except:
-    print("Could not open '%s'" % sys.argv[1])
-    sys.exit(1)
+tex_files = []
 
-tex_lines = tex.split("\n")
-tex_lines_clean = tex.split("\n")
-in_env = {}
-envs = {}
+if(not sys.argv[1].endswith(".tex")):
+    for path, subdirs, files in os.walk(sys.argv[1]):
+        for f in files:
+            if f.endswith(".tex"):
+                tex_files.append(os.path.join(path,f))
+else:
+    tex_files = [sys.argv[1]]
+
+tex = None   
+tex_lines = None
+tex_lines_clean = None
+in_env = None
+envs = None
+    
+def next_file(file):
+    global tex, tex_lines, tex_lines_clean, in_env, envs
+    try:
+        tex = open(file).read()
+    except:
+        print("Could not open '%s'" % sys.argv[1])
+        sys.exit(1)
+
+    tex_lines = tex.split("\n")
+    tex_lines_clean = tex.split("\n")
+    in_env = {}
+    envs = {}
 
 
 def preprocess():
@@ -801,10 +821,9 @@ def remove_categories(cat, rem_cat):
 
 
 def main():
-    preprocess()
 
-    # -x to exclude, -i to include
-    used_categories = set()
+    nr_warnings = 0
+    nr_suppressed = 0
 
     idx = 1
     has_rules = False
@@ -841,20 +860,31 @@ def main():
             exit_code = True
         idx += 1
 
-    if not has_rules:
-        add_categories(used_categories, "all")
 
-    warnings = []
-    suppressed = []
-    for c in checks:
-        add_warn = c[0]()
-        if c[2] in used_categories:
-            warnings += add_warn
-        else:
-            suppressed += add_warn
 
-    nr_warnings = print_warnings(warnings)
-    nr_suppressed = print_warnings(suppressed, output = False)
+    for file in tex_files:
+        next_file(file)
+        print("Inspecting file \033[94m'%s'\033[0m" % file)
+        
+        preprocess()
+
+        # -x to exclude, -i to include
+        used_categories = set()
+
+        if not has_rules:
+            add_categories(used_categories, "all")
+
+        warnings = []
+        suppressed = []
+        for c in checks:
+            add_warn = c[0]()
+            if c[2] in used_categories:
+                warnings += add_warn
+            else:
+                suppressed += add_warn
+
+        nr_warnings += print_warnings(warnings)
+        nr_suppressed += print_warnings(suppressed, output = False)
 
     print("")
     print("%d warnings printed; %d suppressed warnings" % (nr_warnings, nr_suppressed))
