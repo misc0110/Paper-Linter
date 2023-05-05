@@ -576,7 +576,12 @@ def check_acm_pc():
         ("\\bwhite\\-?\\s?box\\b", "clear box"),
         ("\\baverage\\s?user\\b", "common/standard/typical user"),
         ("\\babort\\s?child\\b", "cancel/force quit/stop/end/finalize"),
-        ("\\bterminate\\s?child\\b", "cancel/force quit/stop/end/finalize")
+        ("\\bterminate\\s?child\\b", "cancel/force quit/stop/end/finalize"),
+        ("\\bdark\\-?\\s?pattern\\b", "deceptive design"),
+        ("\\bdummy\\-?\\s?head\\b", "temporary head"),
+        ("\\bgender\\-?\\s?bender\\b", "plug-socket adapter"),
+        ("\\borphaned\\-?\\s?object\\b", "unreferenced/unlinked object"),
+        ("\\bsanity\\-?\\s?check", "coherence/quick/well-formedness check")
     ]
     for i, l in enumerate(tex_lines):
         for r in replace:
