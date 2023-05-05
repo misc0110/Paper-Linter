@@ -750,7 +750,6 @@ def check_colors():
 
 def check_inconsistent_word_style():
     warns = []
-    styled_words = set()
     word_style = {}
     for i, l in enumerate(tex_lines_clean):
         styled = re.search("\\\\text([^\\{]+)\{([^\\}]+)\}", l)
@@ -760,6 +759,32 @@ def check_inconsistent_word_style():
                     warns.append((i, "Word '%s' is styled inconsistently, used with \\text%s before at line %d" % (styled[2], word_style[styled[2]][1][1], word_style[styled[2]][0] + 1), styled.span()))
             else:
                 word_style[styled[2]] = (i, styled)
+    return warns
+
+
+def check_missing_word_style():
+    warns = []
+    word_style = {}
+    for i, l in enumerate(tex_lines_clean):
+        styled = re.search("\\\\text([^\\{]+)\{([^\\}]+)\}", l)
+        if styled:
+            if len(styled[2]) <= 3: continue # reduce false positives for variables
+            if styled[2] in word_style:
+                word_style[styled[2]][2] += 1
+            else:
+                word_style[styled[2]] = [i, styled, 1]
+                
+    for i, l in enumerate(tex_lines_clean):
+        if in_code(i): continue
+        for s in word_style.keys():
+            if word_style[s][2] == 1: continue # reduce false positives, e.g., when the word is emphasized once
+            try:
+                w = re.search("\\b%s\\b" % s, l)
+            except:
+                continue
+            if w:
+                if w.span()[0] > 0 and l[w.span()[0] - 1] != "{":
+                    warns.append((i, "Word '%s' used without a style, used with \\text%s before at line %d (and %d other location%s)" % (s, word_style[s][1][1], word_style[s][0] + 1, word_style[s][2], "s" if word_style[s][2] == 1 else ""), w.span()))
     return warns
 
 
@@ -852,7 +877,8 @@ checks = [
     (check_numeral,                     CATEGORY_GENERAL,    "numeral"),
     (check_multicite,                   CATEGORY_STYLE,      "multiple-cites"),
     (check_colors,                      CATEGORY_VISUAL,     "colors"),
-    (check_inconsistent_word_style,     CATEGORY_TYPOGRAPHY, "inconsistent-textstyle")
+    (check_inconsistent_word_style,     CATEGORY_TYPOGRAPHY, "inconsistent-textstyle"),
+    (check_missing_word_style,          CATEGORY_TYPOGRAPHY, "missing-textstyle")
 ]
 
 category_switches = [
