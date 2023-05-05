@@ -748,6 +748,21 @@ def check_colors():
     return warns
 
 
+def check_inconsistent_word_style():
+    warns = []
+    styled_words = set()
+    word_style = {}
+    for i, l in enumerate(tex_lines_clean):
+        styled = re.search("\\\\text([^\\{]+)\{([^\\}]+)\}", l)
+        if styled:
+            if styled[2] in word_style:
+                if styled[1] != word_style[styled[2]][1][1]:
+                    warns.append((i, "Word '%s' is styled inconsistently, used with \\text%s before at line %d" % (styled[2], word_style[styled[2]][1][1], word_style[styled[2]][0] + 1), styled.span()))
+            else:
+                word_style[styled[2]] = (i, styled)
+    return warns
+
+
 def print_warnings(warn, output = True):
     warnings = 0
     sorted_warn = sorted(warn, key=lambda tup: tup[0][0])
@@ -836,7 +851,8 @@ checks = [
     (check_acronym_capitalization,      CATEGORY_TYPOGRAPHY, "acronym-capitalization"),
     (check_numeral,                     CATEGORY_GENERAL,    "numeral"),
     (check_multicite,                   CATEGORY_STYLE,      "multiple-cites"),
-    (check_colors,                      CATEGORY_VISUAL,     "colors")
+    (check_colors,                      CATEGORY_VISUAL,     "colors"),
+    (check_inconsistent_word_style,     CATEGORY_TYPOGRAPHY, "inconsistent-textstyle")
 ]
 
 category_switches = [

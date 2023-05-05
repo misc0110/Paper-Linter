@@ -111,6 +111,10 @@ This category includes typography-related issues, such as wrong punctuation (swi
 * **Description**: Warns if a (potential) acronym is not written in upper case
 * **Switch**: `acronym-capitalization`
 
+#### Inconsistent Text Style for Word
+* **Description**: Warns if the same word is formatted with different text styles (e.g., `\textit` and `\texttt`)
+* **Switch**: `inconsistent-textstyle`
+
 
 ### Visual
 This category includes warning regarding code that is visually not optimal and can be improved to make the paper look better (switch `visual`).
