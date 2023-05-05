@@ -151,6 +151,10 @@ This category includes warning regarding code that is visually not optimal and c
 * **Description**: Warns if the capitalization for section titles is wrong
 * **Switch**: `capitalization`
 
+#### Colors without Modifiers
+* **Description**: Warns if a color is used without an additional (non-color) modifier such as "dashed/dotted/..."
+* **Switch**: `colors`
+
 
 ### Style
 This category includes warning of things that are discouraged or wrong for the style of an academic paper (switch `style`).
@@ -194,6 +198,10 @@ This category includes warning of things that are discouraged or wrong for the s
 #### Citation as Noun
 * **Description**: Warns if a citation is used as a noun
 * **Switch**: `cite-noun`
+
+#### Multiple cite Commands
+* **Description**: Warns if multiple `\cite` commands are used instead of having multiple citation keys inside one `\cite`
+* **Switch**: `multiple-cites`
 
 #### Sentence starting with a Conjunction 
 * **Description**: Warns if a sentence starts with a conjunction ("And", "But", "Or")

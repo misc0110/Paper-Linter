@@ -610,7 +610,16 @@ def check_cite_duplicate():
                 dupes = [x for x in c if x in seen or seen.add(x)]
                 warns.append((i, "Duplicate citation key: %s" % ", ".join(dupes), re.search(dupes[0], l).span()))
     return warns
-    
+
+
+def check_multicite():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        cites = re.search("\\\\citeA?\\{[^\\}]+\\}\\s*\\\\citeA?\\{[^\\}]+\\}", l)
+        if cites:
+            warns.append((i, "Multiple \\cite commands, use multiple citation keys in one \\cite instead", cites.span()))
+    return warns
+
 
 def check_conjunction_start():
     warns = []
@@ -692,19 +701,68 @@ def check_numeral():
                 warns.append((i, "Numeral \"%s\" should be replaced with \"%s\"" % (w.group(), r[1]), w.span()))
     return warns
 
+
+def check_colors():
+    warns = []
+    cols = [
+        "\\bred\\b",
+        "\\bgreen\\b",
+        "\\bblue\\b",
+        "\\byellow\\b",
+        "\\borange\\b",
+        "\\bmagenta\\b",
+        "\\bcyan\\b",
+        "\\bbrown\\b",
+        "\\bpink\\b"        
+    ]
+    modifiers = [
+        "\\bdott?(ed)?\\b",
+        "\\bdash(ed)?\\b",
+        "\\bthick\\b",
+        "\\bthin\\b",
+        "\\bdash-?dotted\\b",
+        "\\bhatch",
+        "\\bcross",
+        "\\bcheck",
+        "\\bpattern"
+    ]
+    for i, l in enumerate(tex_lines):
+        for c in cols:
+            w = re.search(c, l)
+            if w:
+                # check for = in front of color
+                if w.span()[0] > 0 and l[w.span()[0] - 1] == "=": continue
+                # reduce false positives by looking for modifiers
+                mod = False
+                for m in modifiers:
+                    if re.search(m, l):
+                        mod = True
+                        break
+                if not mod:
+                    warns.append((i, "Colors (\"%s\") without a modifier such as dashed/dotted/... should be avoided." % (w[0]), w.span()))
+    return warns
+
+
 def print_warnings(warn, output = True):
     warnings = 0
-    sorted_warn = sorted(warn, key=lambda tup: tup[0])
-    for w in sorted_warn:
+    sorted_warn = sorted(warn, key=lambda tup: tup[0][0])
+    for cw in sorted_warn:
+        w = cw[0]
         if w[0] != -1 and tex_lines[w[0]].strip().startswith("%"):
             continue
 
-        if output: print("\033[33mWarning %d\033[0m: " % (warnings + 1), end = "")
+        if output: 
+            print("\033[33mWarning %d\033[0m: " % (warnings + 1), end = "")
         warnings += 1
         if w[0] != -1:
-            if output: print("Line %d: %s" % (w[0] + 1, w[1]))
+            if output: print("Line %d: %s" % (w[0] + 1, w[1]), end = "")
         else:
-            if output: print(w[1])
+            if output: print(w[1], end = "")
+        
+        if output:
+            print("  \033[90m[%s]\033[0m" % cw[1], end = "")
+            print("")
+
         if len(w) > 2:
             if output: print("    %s" % tex_lines[w[0]].replace("\t", " "))
             if output: print("    %s\033[33m%s\033[0m" % (" " * w[2][0], "^" * (w[2][1] - w[2][0])))
@@ -771,7 +829,9 @@ checks = [
     (check_conjunction_start,           CATEGORY_STYLE,      "conjunction-start"),
     (check_brackets_space,              CATEGORY_TYPOGRAPHY, "bracket-spacing"),
     (check_acronym_capitalization,      CATEGORY_TYPOGRAPHY, "acronym-capitalization"),
-    (check_numeral,                     CATEGORY_GENERAL,    "numeral")
+    (check_numeral,                     CATEGORY_GENERAL,    "numeral"),
+    (check_multicite,                   CATEGORY_STYLE,      "multiple-cites"),
+    (check_colors,                      CATEGORY_VISUAL,     "colors")
 ]
 
 category_switches = [
@@ -878,9 +938,9 @@ def main():
         for c in checks:
             add_warn = c[0]()
             if c[2] in used_categories:
-                warnings += add_warn
+                warnings += [(x, c[2]) for x in add_warn]
             else:
-                suppressed += add_warn
+                suppressed += [(x, c[2]) for x in add_warn]
 
         nr_warnings += print_warnings(warnings)
         nr_suppressed += print_warnings(suppressed, output = False)
