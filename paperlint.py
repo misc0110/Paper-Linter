@@ -312,7 +312,8 @@ def check_labels_referenced():
                 found = True
                 break
         if not found:
-            warns.append((lab[1], "Label %s is not referenced" % lab[0], lab[2]))
+            if not (lab[0].startswith("sec") or lab[0].startswith("subsec")):
+                warns.append((lab[1], "Label %s is not referenced" % lab[0], lab[2]))
     return warns
 
 
@@ -642,7 +643,7 @@ def check_brackets_space():
     warns = []
     for i, l in enumerate(tex_lines_clean):
         if in_code(i): continue
-        p = re.search("[^\\s\\{~]\\(", l.rstrip())
+        p = re.search("[^\\s\\{~]\\([^(s\\))]", l.rstrip())
         if p:
             warns.append((i, "There must be a space before an opening parenthesis", p.span()))
         p = re.search("\\(\\s", l.rstrip())
@@ -735,8 +736,8 @@ def check_colors():
         for c in cols:
             w = re.search(c, l)
             if w:
-                # check for = in front of color
-                if w.span()[0] > 0 and l[w.span()[0] - 1] == "=": continue
+                # check for = or { in front of color
+                if w.span()[0] > 0 and (l[w.span()[0] - 1] == "=" or l[w.span()[0] - 1] == "{"): continue
                 # reduce false positives by looking for modifiers
                 mod = False
                 for m in modifiers:
@@ -753,7 +754,7 @@ def check_inconsistent_word_style():
     word_style = {}
     for i, l in enumerate(tex_lines_clean):
         styled = re.search("\\\\text([^\\{]+)\{([^\\}]+)\}", l)
-        if styled:
+        if styled and "newcommand" not in l:
             if styled[2] in word_style:
                 if styled[1] != word_style[styled[2]][1][1]:
                     warns.append((i, "Word '%s' is styled inconsistently, used with \\text%s before at line %d" % (styled[2], word_style[styled[2]][1][1], word_style[styled[2]][0] + 1), styled.span()))
