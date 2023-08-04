@@ -939,6 +939,7 @@ def main():
     
     # -x to exclude, -i to include
     used_categories = set()
+    add_categories(used_categories, "all")
         
     while idx < len(sys.argv):
         arg = sys.argv[idx]
