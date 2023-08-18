@@ -43,7 +43,7 @@ def next_file(file):
 
 
 def preprocess():
-    env = list(set(re.findall("\\\\begin\{(\\w+)\}", tex)))
+    env = list(set(re.findall("\\\\begin\{(\\w+)\\*?\}", tex)))
     for e in env:
         in_env[e] = []
         envs[e] = []
@@ -88,6 +88,24 @@ def in_any_float(line):
 def in_code(line):
     if "lstlisting" in in_env:
         return in_env["lstlisting"][line]
+    return False
+
+def in_equation(line):
+    if "equation" in in_env and in_env["equation"][line]:
+        return True
+    if "align" in in_env and in_env["align"][line]:
+        return True
+    if "align*" in in_env and in_env["align*"][line]:
+        return True
+    if "eqnarray" in in_env and in_env["eqnarray"][line]:
+        return True
+    if "theorem" in in_env and in_env["theorem"][line]:
+        return True
+    if "proof" in in_env and in_env["proof"][line]:
+        return True
+    if "proposition" in in_env and in_env["proposition"][line]:
+        return True
+    
     return False
 
 def check_space_before_cite():
@@ -642,18 +660,18 @@ def check_conjunction_start():
 def check_brackets_space():
     warns = []
     for i, l in enumerate(tex_lines_clean):
-        if in_code(i): continue
+        if in_code(i) or in_equation(i): continue
         p = re.search("[^\\s\\{~]\\([^(s\\))]", l.rstrip())
         if p:
-            if l.rstrip()[:p.span()[0]].count("$") % 2 == 0: # only if it is not in an equation
+            if l.rstrip()[:p.span()[1]].count("$") % 2 == 0: # only if it is not in an equation
                 warns.append((i, "There must be a space before an opening parenthesis", p.span()))
         p = re.search("\\(\\s", l.rstrip())
         if p:
-            if l.rstrip()[:p.span()[0]].count("$") % 2 == 0: # only if it is not in an equation
+            if l.rstrip()[:p.span()[1]].count("$") % 2 == 0: # only if it is not in an equation
                 warns.append((i, "There must be no space after an opening parenthesis", p.span()))
         p = re.search("\\s\\)", l.rstrip())
         if p:
-            if l.rstrip()[:p.span()[0]].count("$") % 2 == 0: # only if it is not in an equation
+            if l.rstrip()[:p.span()[1]].count("$") % 2 == 0: # only if it is not in an equation
                 warns.append((i, "There must be no space before a closing parenthesis", p.span()))
     return warns  
 
