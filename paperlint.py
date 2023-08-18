@@ -645,13 +645,16 @@ def check_brackets_space():
         if in_code(i): continue
         p = re.search("[^\\s\\{~]\\([^(s\\))]", l.rstrip())
         if p:
-            warns.append((i, "There must be a space before an opening parenthesis", p.span()))
+            if l.rstrip()[:p.span()[0]].count("$") % 2 == 0: # only if it is not in an equation
+                warns.append((i, "There must be a space before an opening parenthesis", p.span()))
         p = re.search("\\(\\s", l.rstrip())
         if p:
-            warns.append((i, "There must be no space after an opening parenthesis", p.span()))
+            if l.rstrip()[:p.span()[0]].count("$") % 2 == 0: # only if it is not in an equation
+                warns.append((i, "There must be no space after an opening parenthesis", p.span()))
         p = re.search("\\s\\)", l.rstrip())
         if p:
-            warns.append((i, "There must be no space before a closing parenthesis", p.span()))
+            if l.rstrip()[:p.span()[0]].count("$") % 2 == 0: # only if it is not in an equation
+                warns.append((i, "There must be no space before a closing parenthesis", p.span()))
     return warns  
 
 
