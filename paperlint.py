@@ -660,8 +660,8 @@ def check_conjunction_start():
 def check_brackets_space():
     warns = []
     for i, l in enumerate(tex_lines_clean):
-        if in_code(i) or in_equation(i): continue
-        p = re.search("[^\\s\\{~]\\([^(s\\))]", l.rstrip())
+        if in_code(i) or in_equation(i) or (len(l.strip()) > 0 and l.strip()[0] in ["\\", "%"]): continue
+        p = re.search("[^\\s\\{~\\\\]\\([^(s\\))]", l.rstrip())
         if p:
             if l.rstrip()[:p.span()[1]].count("$") % 2 == 0: # only if it is not in an equation
                 warns.append((i, "There must be a space before an opening parenthesis", p.span()))
