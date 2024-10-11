@@ -26,7 +26,7 @@ paperlinter <file.tex/path> [-i/x <include/exclude switch>] [--error]
 	```
 *  Navigate to the `Paper-Linter/scr` and run:
 	```
-	python3 paperlint.py <file.tex/path> [-i/x <include/exclude switch>] [--error]
+	python -m paperlint <file.tex/path> [-i/x <include/exclude switch>] [--error]
 	```
 
 </details>

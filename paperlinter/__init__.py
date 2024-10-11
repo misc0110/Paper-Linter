@@ -2,4 +2,4 @@
 
 __license__ = "MIT"
 
-from paperlint import run_linter_once
+from .paperlint import main, run_linter_once

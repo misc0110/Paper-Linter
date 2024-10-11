@@ -4,34 +4,29 @@ import re
 import sys
 import traceback
 
-
-def usage():
-    print(
-        "%s <file.tex/path> [-x <excluded-switch1>] [-i <included-switch1>] [-i/x <switch n, evaluated in order of specification>] [--error]"
-        % sys.argv[0]
-    )
-    sys.exit(1)
-
-
-if len(sys.argv) < 2:
-    usage()
-
-
-tex_files = []
-
-if not sys.argv[1].endswith(".tex"):
-    for path, subdirs, files in os.walk(sys.argv[1]):
-        for f in files:
-            if f.endswith(".tex"):
-                tex_files.append(os.path.join(path, f))
-else:
-    tex_files = [sys.argv[1]]
-
 tex = None
 tex_lines = None
 tex_lines_clean = None
 in_env = None
 envs = None
+
+PROG_NAME = "paperlinter"
+
+
+def usage():
+    print(
+        f"{PROG_NAME} <file.tex/path> [-x <excluded-switch1>] [-i <included-switch1>] [-i/x <switch n, evaluated in order of specification>] [--error]"
+    )
+
+
+def get_tex_files():
+    if not sys.argv[1].endswith(".tex"):
+        for path, subdirs, files in os.walk(sys.argv[1]):
+            for f in files:
+                if f.endswith(".tex"):
+                    tex_files.append(os.path.join(path, f))
+    else:
+        tex_files = [sys.argv[1]]
 
 
 def next_file(file: str) -> None:
@@ -1187,6 +1182,10 @@ def remove_categories(cat, rem_cat):
 
 
 def run_linter_once(filename: str) -> None:
+
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"No file found: {filename}")
+
     nr_warnings, nr_suppressed = 0, 0
     used_categories = set()
     add_categories(used_categories, "all")
@@ -1210,6 +1209,12 @@ def run_linter_once(filename: str) -> None:
 
 
 def main():
+
+    if len(sys.argv) < 2:
+        usage()
+        sys.exit(1)
+
+    tex_files = get_tex_files()
 
     nr_warnings = 0
     nr_suppressed = 0

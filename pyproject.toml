@@ -4,7 +4,7 @@ requires = ["setuptools", "setuptools-scm"]
 
 [project]
 name = "paperlinter"
-version = "0.2.2"
+version = "0.2.3"
 description = "Checks for common mistakes in LaTeX source files of scientific papers"
 keywords = ["LaTeX", "TeX", "linter", "paper"]
 readme = "README.md"
@@ -17,10 +17,7 @@ classifiers = [
 ]
 
 [project.scripts]
-paperlinter = "src.paperlint:main"
+paperlinter = "paperlinter:main"
 
 [project.urls]
 Homepage = "https://github.com/misc0110/Paper-Linter/"
-
-[tool.setuptools.packages.find]
-include = ["src"]
