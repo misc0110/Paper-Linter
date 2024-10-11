@@ -1,16 +1,44 @@
 # LaTeX Paper Linter
 
-This script checks for common mistakes in LaTeX source files of scientific papers. 
+This script checks for common mistakes in LaTeX source files of scientific papers.
 
-## Usage
+## Installation
 
-    python3 paperlint.py <file.tex/path> [-i/x <include/exclude switch>] [--error]
+Install directly from this repository:
 
-Provide either a single .tex file to check or a path to recursively check all .tex files in that directory!
+```bash
+pip install paperlinter@git+https://github.com/misc0110/Paper-Linter
+```
+
+## Usage: CLI
+
+```
+paperlinter <file.tex/path> [-i/x <include/exclude switch>] [--error]
+```
+
+<details>
+
+<summary>Usage: Script Mode</summary>
+
+* Clone repository:
+	```bash
+	git clone https://github.com/misc0110/Paper-Linter
+	```
+*  Navigate to the `Paper-Linter/scr` and run:
+	```
+	python -m paperlint <file.tex/path> [-i/x <include/exclude switch>] [--error]
+	```
+
+</details>
+
+## Usage: Explanation
+
+Provide either a single .tex file to check or a path to recursively check all `.tex` files in that directory!
 By default, all rules are used for checking the document.
-The switches can be configured with the `-x` and `-i` parameters to exclude and include entire categories of rules or single rules. 
-The include/exclude switches are evaluated in the order they are specified. 
-For example, `-i typography` only activates the typography rules, whereas `-i all -x typography -i cite-space` enables all rules without the typography rules, but enables the `cite-space` rule from the typography category. 
+The switches can be configured with the `-x` and `-i` parameters to exclude and include entire categories of rules or single rules.
+The include/exclude switches are evaluated in the order they are specified.
+
+For example, `-i typography` only activates the typography rules, whereas `-i all -x typography -i cite-space` enables all rules without the typography rules, but enables the `cite-space` rule from the typography category.
 
 If `--error` is provided, the tool exits with error code 1 if there are warnings.
 
@@ -211,7 +239,7 @@ This category includes warning of things that are discouraged or wrong for the s
 * **Description**: Warns if multiple `\cite` commands are used instead of having multiple citation keys inside one `\cite`
 * **Switch**: `multiple-cites`
 
-#### Sentence starting with a Conjunction 
+#### Sentence starting with a Conjunction
 * **Description**: Warns if a sentence starts with a conjunction ("And", "But", "Or")
 * **Switch**: `conjunction-start`
 
@@ -262,3 +290,7 @@ This category includes warnings for everything related to (cross-)references (sw
 #### Duplicate Keys in Citations
 * **Description**: Warns if a `cite` command has duplicate entries
 * **Switch**: `cite-duplicate`
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
