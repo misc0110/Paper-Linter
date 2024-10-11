@@ -7,13 +7,13 @@ This script checks for common mistakes in LaTeX source files of scientific paper
 Install directly from this repository:
 
 ```bash
-pip install paper-linter@git+https://github.com/misc0110/Paper-Linter
+pip install paperlinter@git+https://github.com/misc0110/Paper-Linter
 ```
 
 ## Usage: CLI
 
 ```
-paper-linter <file.tex/path> [-i/x <include/exclude switch>] [--error]
+paperlinter <file.tex/path> [-i/x <include/exclude switch>] [--error]
 ```
 
 <details>

@@ -3,8 +3,8 @@ build-backend = "setuptools.build_meta"
 requires = ["setuptools", "setuptools-scm"]
 
 [project]
-name = "paper-linter"
-version = "0.2.0"
+name = "paperlinter"
+version = "0.2.1"
 description = "Checks for common mistakes in LaTeX source files of scientific papers"
 keywords = ["LaTeX", "TeX", "linter", "paper"]
 readme = "README.md"
@@ -17,7 +17,7 @@ classifiers = [
 ]
 
 [project.scripts]
-paper-linter = "src.paperlint:main"
+paperlinter = "src.paperlint:main"
 
 [project.urls]
 Homepage = "https://github.com/misc0110/Paper-Linter/"
