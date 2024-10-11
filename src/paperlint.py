@@ -1186,6 +1186,29 @@ def remove_categories(cat, rem_cat):
                 cat.remove(cats[2])
 
 
+def run_linter_once(filename: str) -> None:
+    nr_warnings, nr_suppressed = 0, 0
+    used_categories = set()
+    add_categories(used_categories, "all")
+
+    next_file(filename)
+    print("Inspecting file \033[94m'%s'\033[0m" % filename)
+
+    preprocess()
+
+    warnings = []
+    suppressed = []
+    for c in checks:
+        add_warn = c[0]()
+        if c[2] in used_categories:
+            warnings += [(x, c[2]) for x in add_warn]
+        else:
+            suppressed += [(x, c[2]) for x in add_warn]
+
+    nr_warnings += print_warnings(warnings)
+    nr_suppressed += print_warnings(suppressed, output=False)
+
+
 def main():
 
     nr_warnings = 0
