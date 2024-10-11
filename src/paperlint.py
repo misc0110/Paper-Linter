@@ -72,7 +72,9 @@ def preprocess():
             if "%" in tex_lines[i]:
                 idx = tex_lines[i].index("%")
                 if idx > 0 and tex_lines[i][idx - 1] != "\\":
-                    tex_lines_clean[i] = tex_lines[i][0 : max(0, (tex_lines[i].index("%") - 1))]
+                    tex_lines_clean[i] = tex_lines[i][
+                        0 : max(0, (tex_lines[i].index("%") - 1))
+                    ]
                     if tex_lines_clean[i].startswith("%"):
                         tex_lines_clean[i] = ""
                 else:
@@ -137,7 +139,9 @@ def check_float_alignment(env):
         b = re.search("\\\\begin\{%s\}" % env, l)
         if b:
             if not re.search("%s}\[[^\]]*[htbH][^\]]*\]" % env, l):
-                warns.append((i, "%s without alignment: %s" % (env, l.strip()), b.span()))
+                warns.append(
+                    (i, "%s without alignment: %s" % (env, l.strip()), b.span())
+                )
     return warns
 
 
@@ -198,7 +202,9 @@ def check_float_caption_label_order(env):
             if b:
                 label = i
         if label > -1 and caption > -1 and label < caption:
-            warns.append((r[0], "label before caption in %s, swap for correct references" % env))
+            warns.append(
+                (r[0], "label before caption in %s, swap for correct references" % env)
+            )
     return warns
 
 
@@ -225,7 +231,13 @@ def check_weird_units():
     for i, l in enumerate(tex_lines):
         for b in block:
             if b in l:
-                warns.append((i, "use \\hsize instead of %s" % b, (l.index(b), l.index(b) + len(b))))
+                warns.append(
+                    (
+                        i,
+                        "use \\hsize instead of %s" % b,
+                        (l.index(b), l.index(b) + len(b)),
+                    )
+                )
     return warns
 
 
@@ -277,9 +289,13 @@ def check_notes():
     warns = []
     for i, l in enumerate(tex_lines_clean):
         if "\\note" in l:
-            warns.append((i, "\\note found", (l.index("\\note"), l.index("\\note") + 5)))
+            warns.append(
+                (i, "\\note found", (l.index("\\note"), l.index("\\note") + 5))
+            )
         if "\\todo" in l:
-            warns.append((i, "\\todo found", (l.index("\\todo"), l.index("\\todo") + 5)))
+            warns.append(
+                (i, "\\todo found", (l.index("\\todo"), l.index("\\todo") + 5))
+            )
     return warns
 
 
@@ -288,7 +304,9 @@ def check_math_numbers():
     for i, l in enumerate(tex_lines):
         n = re.search("\\$\\d+\\$", tex_lines[i])
         if n and not in_any_float(i):
-            warns.append((i, "Number in math mode, consider using siunit instead", n.span()))
+            warns.append(
+                (i, "Number in math mode, consider using siunit instead", n.span())
+            )
     return warns
 
 
@@ -297,7 +315,9 @@ def check_large_numbers_without_si():
     for i, l in enumerate(tex_lines):
         n = re.search("[\\s\(]\\d{5,}[\\s\),\.]", tex_lines[i])
         if n and not in_any_float(i):
-            warns.append((i, "Large number without formating, consider using siunit", n.span()))
+            warns.append(
+                (i, "Large number without formating, consider using siunit", n.span())
+            )
     return warns
 
 
@@ -380,7 +400,13 @@ def check_section_capitalization():
                 words = n.group(2).split(" ")
                 for w in words:
                     if len(w) > 4 and w[0].islower():
-                        warns.append((i, "Wrong capitalization of header", (l.index(w), l.index(w) + 1)))
+                        warns.append(
+                            (
+                                i,
+                                "Wrong capitalization of header",
+                                (l.index(w), l.index(w) + 1),
+                            )
+                        )
                         break
             except:
                 pass
@@ -393,7 +419,13 @@ def check_quotation():
         ws = re.search('[^\\\\]"\\w+', l)
         we = re.search('\\w+"', l)
         if (ws or we) and not in_code(i):
-            warns.append((i, "Wrong quotation, use `` and '' instead of \"", ws.span() if ws else we.span()))
+            warns.append(
+                (
+                    i,
+                    "Wrong quotation, use `` and '' instead of \"",
+                    ws.span() if ws else we.span(),
+                )
+            )
     return warns
 
 
@@ -403,7 +435,13 @@ def check_hline_in_table():
         hl = re.search("\\\\hline", l)
         if hl:
             if "tabular" in in_env and in_env["tabular"]:
-                warns.append((i, "\\hline in table, consider using \\toprule, \\midrule, \\bottomrule.", hl.span()))
+                warns.append(
+                    (
+                        i,
+                        "\\hline in table, consider using \\toprule, \\midrule, \\bottomrule.",
+                        hl.span(),
+                    )
+                )
     return warns
 
 
@@ -430,7 +468,9 @@ def check_headers_without_text():
                     continue
                 nn = re.search("(section|paragraph)\\{([^\\}]+)\\}", tex_lines[nx])
                 if nn:
-                    warns.append((i, "Section header without text before next header", n.span()))
+                    warns.append(
+                        (i, "Section header without text before next header", n.span())
+                    )
                 break
     return warns
 
@@ -465,9 +505,17 @@ def check_unbalanced_brackets():
     warns = []
     for i, l in enumerate(tex_lines):
         if l.count("(") != l.count(")") and not in_code(i):
-            first = min(l.index("(") if l.count("(") > 0 else len(l), l.index(")") if l.count(")") > 0 else len(l))
-            last = max(l.rindex("(") if l.count("(") > 0 else len(l), l.rindex(")") if l.count(")") > 0 else len(l))
-            warns.append((i, "Mismatch of opening and closing parenthesis", (first, last)))
+            first = min(
+                l.index("(") if l.count("(") > 0 else len(l),
+                l.index(")") if l.count(")") > 0 else len(l),
+            )
+            last = max(
+                l.rindex("(") if l.count("(") > 0 else len(l),
+                l.rindex(")") if l.count(")") > 0 else len(l),
+            )
+            warns.append(
+                (i, "Mismatch of opening and closing parenthesis", (first, last))
+            )
     return warns
 
 
@@ -485,7 +533,9 @@ def check_ellipsis():
     for i, l in enumerate(tex_lines):
         el = re.search("\\w+\\.\\.\\.", l)
         if el:
-            warns.append((i, 'Ellipsis "..." discouraged in academic writing', el.span()))
+            warns.append(
+                (i, 'Ellipsis "..." discouraged in academic writing', el.span())
+            )
     return warns
 
 
@@ -494,7 +544,9 @@ def check_etc():
     for i, l in enumerate(tex_lines):
         el = re.search("\\s+etc[\\.\\w]", l)
         if el:
-            warns.append((i, 'Unspecific "etc" discouraged in academic writing', el.span()))
+            warns.append(
+                (i, 'Unspecific "etc" discouraged in academic writing', el.span())
+            )
     return warns
 
 
@@ -539,7 +591,13 @@ def check_punctuation_end_of_line():
             continue
         if sl.endswith("\\\\") or sl.endswith("}"):
             continue
-        if sl.endswith(".") or sl.endswith("!") or sl.endswith("?") or sl.endswith(":") or sl.endswith(";"):
+        if (
+            sl.endswith(".")
+            or sl.endswith("!")
+            or sl.endswith("?")
+            or sl.endswith(":")
+            or sl.endswith(";")
+        ):
             continue
         p = re.search("\\s*[\\w})$]+[\\.!?}{:;\\\\]\\s*$", l.rstrip())
         if not p:
@@ -630,7 +688,9 @@ def check_eqnarray():
     for i, l in enumerate(tex_lines):
         ap = re.search("\\\\begin\{eqnarray\}", l)
         if ap:
-            warns.append((i, "Use \\begin{align} instead of \\begin{eqnarray}", ap.span()))
+            warns.append(
+                (i, "Use \\begin{align} instead of \\begin{eqnarray}", ap.span())
+            )
     return warns
 
 
@@ -668,7 +728,14 @@ def check_acm_pc():
         for r in replace:
             w = re.search(r[0], l)
             if w:
-                warns.append((i, 'Discouraged term "%s", consider replacing with "%s"' % (w.group(), r[1]), w.span()))
+                warns.append(
+                    (
+                        i,
+                        'Discouraged term "%s", consider replacing with "%s"'
+                        % (w.group(), r[1]),
+                        w.span(),
+                    )
+                )
     return warns
 
 
@@ -680,7 +747,13 @@ def check_cite_noun():
             warns.append((i, "Citation is used as noun", ap.span()))
         ap = re.search("^\\s*\\\\cite", l)
         if ap:
-            warns.append((i, "Citation at the beginning of a sentence (probably as noun)", ap.span()))
+            warns.append(
+                (
+                    i,
+                    "Citation at the beginning of a sentence (probably as noun)",
+                    ap.span(),
+                )
+            )
     return warns
 
 
@@ -694,7 +767,13 @@ def check_cite_duplicate():
             if len(c) != len(list(set(c))):
                 seen = set()
                 dupes = [x for x in c if x in seen or seen.add(x)]
-                warns.append((i, "Duplicate citation key: %s" % ", ".join(dupes), re.search(dupes[0], l).span()))
+                warns.append(
+                    (
+                        i,
+                        "Duplicate citation key: %s" % ", ".join(dupes),
+                        re.search(dupes[0], l).span(),
+                    )
+                )
     return warns
 
 
@@ -704,7 +783,11 @@ def check_multicite():
         cites = re.search("\\\\citeA?\\{[^\\}]+\\}\\s*\\\\citeA?\\{[^\\}]+\\}", l)
         if cites:
             warns.append(
-                (i, "Multiple \\cite commands, use multiple citation keys in one \\cite instead", cites.span())
+                (
+                    i,
+                    "Multiple \\cite commands, use multiple citation keys in one \\cite instead",
+                    cites.span(),
+                )
             )
     return warns
 
@@ -714,30 +797,50 @@ def check_conjunction_start():
     for i, l in enumerate(tex_lines_clean):
         p = re.search("[\\.!?]\\s+(And|Or|But)[\\s,]", l.rstrip())
         if p:
-            warns.append((i, "Starting a sentence with a conjunction is discouraged", p.span()))
+            warns.append(
+                (i, "Starting a sentence with a conjunction is discouraged", p.span())
+            )
         p = re.search("^(And|Or|But)[\\s,]", l.rstrip())
         if p:
-            warns.append((i, "Starting a sentence with a conjunction is discouraged", p.span()))
+            warns.append(
+                (i, "Starting a sentence with a conjunction is discouraged", p.span())
+            )
     return warns
 
 
 def check_brackets_space():
     warns = []
     for i, l in enumerate(tex_lines_clean):
-        if in_code(i) or in_equation(i) or (len(l.strip()) > 0 and l.strip()[0] in ["\\", "%"]):
+        if (
+            in_code(i)
+            or in_equation(i)
+            or (len(l.strip()) > 0 and l.strip()[0] in ["\\", "%"])
+        ):
             continue
         p = re.search("[^\\s\\{~\\\\]\\([^(s\\))]", l.rstrip())
         if p:
-            if l.rstrip()[: p.span()[1]].count("$") % 2 == 0:  # only if it is not in an equation
-                warns.append((i, "There must be a space before an opening parenthesis", p.span()))
+            if (
+                l.rstrip()[: p.span()[1]].count("$") % 2 == 0
+            ):  # only if it is not in an equation
+                warns.append(
+                    (i, "There must be a space before an opening parenthesis", p.span())
+                )
         p = re.search("\\(\\s", l.rstrip())
         if p:
-            if l.rstrip()[: p.span()[1]].count("$") % 2 == 0:  # only if it is not in an equation
-                warns.append((i, "There must be no space after an opening parenthesis", p.span()))
+            if (
+                l.rstrip()[: p.span()[1]].count("$") % 2 == 0
+            ):  # only if it is not in an equation
+                warns.append(
+                    (i, "There must be no space after an opening parenthesis", p.span())
+                )
         p = re.search("\\s\\)", l.rstrip())
         if p:
-            if l.rstrip()[: p.span()[1]].count("$") % 2 == 0:  # only if it is not in an equation
-                warns.append((i, "There must be no space before a closing parenthesis", p.span()))
+            if (
+                l.rstrip()[: p.span()[1]].count("$") % 2 == 0
+            ):  # only if it is not in an equation
+                warns.append(
+                    (i, "There must be no space before a closing parenthesis", p.span())
+                )
     return warns
 
 
@@ -764,7 +867,9 @@ def check_acronym_capitalization():
                 found = l[p.span()[0] : p.span()[1]]
                 if found[-1] == "s":  # ignore plural
                     found = found[:-1]
-                if l[: p.span()[0]].count("{") != l[: p.span()[0]].count("}"):  # probably inside a reference or label
+                if l[: p.span()[0]].count("{") != l[: p.span()[0]].count(
+                    "}"
+                ):  # probably inside a reference or label
                     continue
                 if "@" in l:  # probably a mail address
                     continue
@@ -800,7 +905,13 @@ def check_numeral():
         for r in replace:
             w = re.search(r[0], l)
             if w:
-                warns.append((i, 'Numeral "%s" should be replaced with "%s"' % (w.group(), r[1]), w.span()))
+                warns.append(
+                    (
+                        i,
+                        'Numeral "%s" should be replaced with "%s"' % (w.group(), r[1]),
+                        w.span(),
+                    )
+                )
     return warns
 
 
@@ -833,7 +944,9 @@ def check_colors():
             w = re.search(c, l)
             if w:
                 # check for = or { in front of color
-                if w.span()[0] > 0 and (l[w.span()[0] - 1] == "=" or l[w.span()[0] - 1] == "{"):
+                if w.span()[0] > 0 and (
+                    l[w.span()[0] - 1] == "=" or l[w.span()[0] - 1] == "{"
+                ):
                     continue
                 # reduce false positives by looking for modifiers
                 mod = False
@@ -845,7 +958,8 @@ def check_colors():
                     warns.append(
                         (
                             i,
-                            'Colors ("%s") without a modifier such as dashed/dotted/... should be avoided.' % (w[0]),
+                            'Colors ("%s") without a modifier such as dashed/dotted/... should be avoided.'
+                            % (w[0]),
                             w.span(),
                         )
                     )
@@ -864,7 +978,11 @@ def check_inconsistent_word_style():
                         (
                             i,
                             "Word '%s' is styled inconsistently, used with \\text%s before at line %d"
-                            % (styled[2], word_style[styled[2]][1][1], word_style[styled[2]][0] + 1),
+                            % (
+                                styled[2],
+                                word_style[styled[2]][1][1],
+                                word_style[styled[2]][0] + 1,
+                            ),
                             styled.span(),
                         )
                     )
@@ -941,7 +1059,10 @@ def print_warnings(warn, output=True):
             if output:
                 print("    %s" % tex_lines[w[0]].replace("\t", " "))
             if output:
-                print("    %s\033[33m%s\033[0m" % (" " * w[2][0], "^" * (w[2][1] - w[2][0])))
+                print(
+                    "    %s\033[33m%s\033[0m"
+                    % (" " * w[2][0], "^" * (w[2][1] - w[2][0]))
+                )
     return warnings
 
 
@@ -1013,7 +1134,14 @@ checks = [
 ]
 
 category_switches = [
-    ("all", CATEGORY_GENERAL | CATEGORY_REFERENCE | CATEGORY_STYLE | CATEGORY_TYPOGRAPHY | CATEGORY_VISUAL),
+    (
+        "all",
+        CATEGORY_GENERAL
+        | CATEGORY_REFERENCE
+        | CATEGORY_STYLE
+        | CATEGORY_TYPOGRAPHY
+        | CATEGORY_VISUAL,
+    ),
     ("general", CATEGORY_GENERAL),
     ("reference", CATEGORY_REFERENCE),
     ("style", CATEGORY_STYLE),
