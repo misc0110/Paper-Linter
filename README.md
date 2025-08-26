@@ -262,3 +262,7 @@ This category includes warnings for everything related to (cross-)references (sw
 #### Duplicate Keys in Citations
 * **Description**: Warns if a `cite` command has duplicate entries
 * **Switch**: `cite-duplicate`
+
+#### Empty Citation Key
+* **Description**: Warns if a `cite` command is empty, i.e., has no key
+* **Switch**: `cite-empty`

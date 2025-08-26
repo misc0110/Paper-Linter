@@ -412,7 +412,7 @@ def check_multiple_sentences_per_line():
     warns = []
     for i, l in enumerate(tex_lines_clean):
         p = re.search("[\\.!?]\\s+\\w+", l.rstrip())
-        if p:
+        if p and "vs." not in l.rstrip():
             warns.append((i, "Multiple sentences in one line", p.span()))
     return warns
 
@@ -644,6 +644,14 @@ def check_multicite():
             warns.append((i, "Multiple \\cite commands, use multiple citation keys in one \\cite instead", cites.span()))
     return warns
 
+
+def check_emptycite():
+    warns = []
+    for i, l in enumerate(tex_lines):
+        cites = re.search("\\\\citeA?\\{\\s*\\}", l)
+        if cites:
+            warns.append((i, "Empty citation key", cites.span()))
+    return warns
 
 def check_conjunction_start():
     warns = []
@@ -898,6 +906,7 @@ checks = [
     (check_acronym_capitalization,      CATEGORY_TYPOGRAPHY, "acronym-capitalization"),
     (check_numeral,                     CATEGORY_GENERAL,    "numeral"),
     (check_multicite,                   CATEGORY_STYLE,      "multiple-cites"),
+    (check_emptycite,                   CATEGORY_REFERENCE,  "cite-empty"),
     (check_colors,                      CATEGORY_VISUAL,     "colors"),
     (check_inconsistent_word_style,     CATEGORY_TYPOGRAPHY, "inconsistent-textstyle"),
     (check_missing_word_style,          CATEGORY_TYPOGRAPHY, "missing-textstyle")
