@@ -27,6 +27,17 @@ tex_lines = None
 tex_lines_clean = None
 in_env = None
 envs = None
+
+FLOAT_ENVS = ["figure", "listing", "table"]
+CODE_WARNING_EXCEPTIONS = {
+    "listing-alignment",
+    "listing-label",
+    "listing-caption",
+    "listing-caption-order",
+    "listing-float",
+}
+SECTION_COMMAND_RE = re.compile("\\\\(section|subsection|subsubsection|paragraph)\\*?\\{([^\\}]+)\\}")
+SENTENCE_END_RE = re.compile(r"(?<!\\)[.!?](?=(?:['\")\]}]*)(?:\s|$))")
     
 def next_file(file):
     global tex, tex_lines, tex_lines_clean, in_env, envs
@@ -43,16 +54,18 @@ def next_file(file):
 
 
 def preprocess():
-    env = list(set(re.findall("\\\\begin\{(\\w+)\\*?\}", tex)))
+    env = list(set(re.findall(r"\\begin\{(\w+)\*?\}", tex)))
     for e in env:
         in_env[e] = []
         envs[e] = []
         current_start = -1
+        begin_pattern = re.compile(r"\\begin\{%s\*?\}" % re.escape(e))
+        end_pattern = re.compile(r"\\end\{%s\*?\}" % re.escape(e))
         for i, l in enumerate(tex_lines):
-            if re.search("\\\\begin\{%s" % e, l):
+            if begin_pattern.search(l):
                 in_env[e].append(True)
                 current_start = i
-            elif re.search("\\\\end\{%s" % e, l):
+            elif end_pattern.search(l):
                 in_env[e].append(False)
                 envs[e].append((current_start, i))
             else:
@@ -69,6 +82,10 @@ def preprocess():
                     tex_lines_clean[i] = tex_lines[i]
             else:
                 tex_lines_clean[i] = tex_lines[i]
+    if "comment" in in_env:
+        for i in range(len(tex_lines_clean)):
+            if in_env["comment"][i]:
+                tex_lines_clean[i] = ""
 
 
 def in_any_env(line):
@@ -79,8 +96,7 @@ def in_any_env(line):
 
 
 def in_any_float(line):
-    floats = ["figure", "listing", "table"]
-    for f in floats:
+    for f in FLOAT_ENVS:
         if f in in_env and in_env[f][line]:
             return True
     return False
@@ -88,6 +104,17 @@ def in_any_float(line):
 def in_code(line):
     if "lstlisting" in in_env:
         return in_env["lstlisting"][line]
+    return False
+
+def in_comment(line):
+    if "comment" in in_env:
+        return in_env["comment"][line]
+    return False
+
+def in_list(line):
+    for env in ["itemize", "enumerate", "compactitem", "compactenum", "description"]:
+        if env in in_env and in_env[env][line]:
+            return True
     return False
 
 def in_equation(line):
@@ -108,6 +135,136 @@ def in_equation(line):
     
     return False
 
+
+def normalize_title(title):
+    return re.sub("\\s+", " ", title.strip()).lower()
+
+
+def get_section_entries():
+    entries = []
+    for i, l in enumerate(tex_lines_clean):
+        match = SECTION_COMMAND_RE.search(l)
+        if match:
+            entries.append({
+                "line": i,
+                "level": match.group(1),
+                "title": match.group(2).strip(),
+                "span": match.span(),
+                "starred": "*" in match.group(0)
+            })
+    return entries
+
+
+def extract_section_ranges():
+    entries = [e for e in get_section_entries() if e["level"] == "section"]
+    appendix_line = tex.find("\\appendix")
+    appendix_line = tex[:appendix_line].count("\n") if appendix_line != -1 else None
+    ranges = []
+    for idx, entry in enumerate(entries):
+        start = entry["line"] + 1
+        end = len(tex_lines)
+        for nxt in entries[idx + 1:]:
+            end = nxt["line"]
+            break
+        ranges.append({
+            "title": entry["title"],
+            "line": entry["line"],
+            "span": entry["span"],
+            "starred": entry["starred"],
+            "in_appendix": appendix_line is not None and entry["line"] > appendix_line,
+            "start": start,
+            "end": end
+        })
+    return ranges
+
+
+def count_sentences(text):
+    stripped = text.strip()
+    if not stripped:
+        return 0
+    cleaned = re.sub(r"\\[A-Za-z@]+\*?(?:\[[^\]]*\])?(?:\{[^{}]*\})?", " ", stripped)
+    return len(SENTENCE_END_RE.findall(cleaned))
+
+
+def is_paragraph_content(line):
+    stripped = line.strip()
+    if not stripped:
+        return False
+    if stripped.startswith("%"):
+        return False
+    if stripped in ["{", "}"]:
+        return False
+    if re.match("\\\\(section|subsection|subsubsection|paragraph|begin|end|item|label|caption|centering|bibliography|bibliographystyle|appendix|FloatBarrier|clearpage|cleardoublepage|maketitle|title|author|date|thanks|if|else|fi|newcommand|renewcommand|providecommand|definecolor|newlength|setlength|AtBeginDocument)\\b", stripped):
+        return False
+    return True
+
+
+def get_paragraphs(start=0, end=None):
+    if end is None:
+        end = len(tex_lines_clean)
+    paragraphs = []
+    para_start = None
+    para_lines = []
+    for idx in range(start, end):
+        if "document" in in_env and not in_env["document"][idx]:
+            continue
+        stripped = tex_lines_clean[idx].strip()
+        if stripped.startswith("%"):
+            continue
+        if in_code(idx) or in_equation(idx) or in_any_float(idx):
+            if para_lines:
+                paragraphs.append((para_start, idx, " ".join(para_lines).strip()))
+                para_start = None
+                para_lines = []
+            continue
+        item_match = re.match(r"\\item(?:\s*\[[^\]]+\])?\s*(.*)", stripped)
+        if item_match:
+            if para_lines:
+                paragraphs.append((para_start, idx, " ".join(para_lines).strip()))
+            para_start = idx
+            para_lines = [item_match.group(1).strip()]
+            continue
+        if is_paragraph_content(tex_lines_clean[idx]):
+            if para_start is None:
+                para_start = idx
+            para_lines.append(stripped)
+        else:
+            if para_lines:
+                paragraphs.append((para_start, idx, " ".join(para_lines).strip()))
+                para_start = None
+                para_lines = []
+    if para_lines:
+        paragraphs.append((para_start, end, " ".join(para_lines).strip()))
+    return paragraphs
+
+
+def get_math_spans(line):
+    spans = []
+    for pattern in [r"\$(.+?)\$", r"\\\((.+?)\\\)"]:
+        for match in re.finditer(pattern, line):
+            spans.append((match.start(), match.end(), match.group(1)))
+    return spans
+
+
+def strip_explicit_math_text(content):
+    stripped = content
+    explicit_text_commands = [
+        "text",
+        "textrm",
+        "textit",
+        "textbf",
+        "textsf",
+        "texttt",
+        "mbox",
+        "operatorname"
+    ]
+    pattern = re.compile(r"\\(?:%s)\*?\{[^{}]*\}" % "|".join(explicit_text_commands))
+    while True:
+        updated = pattern.sub(" ", stripped)
+        if updated == stripped:
+            return stripped
+        stripped = updated
+
 def check_space_before_cite():
     warns = []
     for i, l in enumerate(tex_lines):
@@ -120,9 +277,9 @@ def check_space_before_cite():
 def check_float_alignment(env):
     warns = []
     for i, l in enumerate(tex_lines):
-        b = re.search("\\\\begin\{%s\}" % env, l)
+        b = re.search(r"\\begin\{%s\}" % env, l)
         if b:
-            if not re.search("%s}\[[^\]]*[htbH][^\]]*\]" % env, l):
+            if not re.search(r"%s}\[[^\]]*[htbH][^\]]*\]" % env, l):
                 warns.append((i, "%s without alignment: %s" % (env, l.strip()), b.span()))
     return warns
 
@@ -141,7 +298,7 @@ def check_float_has_label(env):
     for r in envs[env]:
         label = False
         for i in range(*r):
-            b = re.search("\\\\label\{", tex_lines[i])
+            b = re.search(r"\\label\{", tex_lines[i])
             if b:
                 label = True
         if not label:
@@ -155,7 +312,7 @@ def check_float_has_caption(env):
     for r in envs[env]:
         label = False
         for i in range(*r):
-            b = re.search("\\\\caption\{", tex_lines[i])
+            b = re.search(r"\\caption\{", tex_lines[i])
             if b:
                 label = True
         if not label:
@@ -169,10 +326,10 @@ def check_float_caption_label_order(env):
         label = -1
         caption = -1
         for i in range(*r):
-            b = re.search("\\\\caption\{", tex_lines[i])
+            b = re.search(r"\\caption\{", tex_lines[i])
             if b:
                 caption = i
-            b = re.search("\\\\label\{", tex_lines[i])
+            b = re.search(r"\\label\{", tex_lines[i])
             if b:
                 label = i
         if label > -1 and caption > -1 and label < caption:
@@ -187,7 +344,7 @@ def check_no_resizebox_for_tables():
         rb = False
         b = None
         for i in range(*r):
-            b = re.search("\\\\resizebox\{", tex_lines[i])
+            b = re.search(r"\\resizebox\{", tex_lines[i])
             if b:
                 rb = True
                 break
@@ -253,16 +410,216 @@ def check_notes():
 def check_math_numbers():
     warns = []
     for i, l in enumerate(tex_lines):
+        if in_code(i):
+            continue
         n = re.search("\\$\\d+\\$", tex_lines[i]) 
         if n and not in_any_float(i):
             warns.append((i, "Number in math mode, consider using siunit instead", n.span()))
     return warns
 
 
+def check_math_text_mix():
+    warns = []
+    for i, l in enumerate(tex_lines_clean):
+        if in_code(i):
+            continue
+        for start, end, content in get_math_spans(l):
+            normalized = strip_explicit_math_text(content)
+            normalized = re.sub("\\\\[A-Za-z]+", " ", normalized)
+            normalized = re.sub("[\\^_{}&=+\\-*/(),.;:0-9\\s]", " ", normalized)
+            words = re.findall("[A-Za-z]{2,}", normalized)
+            if words:
+                warns.append((i, "Text-like content in math mode, mark it explicitly with \\text{...}", (start, end)))
+                break
+    return warns
+
+
+def check_units():
+    warns = []
+    unit_pattern = re.compile(r"(?<!\\)(\b\d+(?:\.\d+)?)(\s?)(ms|ns|us|s|min|h|Hz|kHz|MHz|GHz|B|KB|MB|GB|TB|bit|m|cm|mm|km|g|kg|mg|V|A|W|kW|J|N|K|mol|cd)\b")
+    for i, l in enumerate(tex_lines_clean):
+        if in_code(i):
+            continue
+        if any(cmd in l for cmd in ["\\SI{", "\\si{", "\\qty{", "\\unit{"]):
+            continue
+        match = unit_pattern.search(l)
+        if match:
+            before = l[match.start() - 1] if match.start() > 0 else ""
+            after = l[match.end()] if match.end() < len(l) else ""
+            if before.isalnum() or before in ["-", "_"]:
+                continue
+            if after.isalnum() or after in ["-", "_"]:
+                continue
+            prefix = l[:match.start()].rstrip()
+            if re.search(r"\\[A-Za-z@]+\*?(?:\{[^{}]*\})*\{$", prefix):
+                continue
+            if re.search(r"(?:^|[,\[])\s*[A-Za-z@][A-Za-z0-9@ _-]*=\s*$", prefix):
+                continue
+            if match.group(2) == "":
+                warns.append((i, "Unit attached to number, separate it and prefer siunitx", match.span()))
+            else:
+                warns.append((i, "Number with unit should use siunitx", match.span()))
+    return warns
+
+
+def check_float_placement():
+    warns = []
+    for i, l in enumerate(tex_lines_clean):
+        match = re.search("\\\\begin\\{(%s)\\}\\[([^\\]]*[hH][^\\]]*)\\]" % "|".join(FLOAT_ENVS), l)
+        if match:
+            warns.append((i, "Float uses discouraged placement specifier [%s]" % match.group(2), match.span(2)))
+    return warns
+
+
+def check_unused_macro():
+    warns = []
+    definitions = []
+    patterns = [
+        re.compile("\\\\newcommand\\*?\\{\\\\([A-Za-z@]+)\\}"),
+        re.compile("\\\\providecommand\\*?\\{\\\\([A-Za-z@]+)\\}"),
+        re.compile("\\\\def\\\\([A-Za-z@]+)")
+    ]
+    for i, l in enumerate(tex_lines_clean):
+        for pattern in patterns:
+            match = pattern.search(l)
+            if match:
+                definitions.append((match.group(1), i, match.span(1)))
+                break
+    for name, line, span in definitions:
+        if len(re.findall("\\\\%s\\b" % re.escape(name), tex)) <= 1:
+            warns.append((line, "Macro \\%s is defined but never used" % name, span))
+    return warns
+
+
+def check_required_sections():
+    warns = []
+    sections = {normalize_title(section["title"]) for section in extract_section_ranges()}
+    if "\\begin{abstract}" in tex:
+        sections.add("abstract")
+    required = ["abstract", "introduction", "conclusion"]
+    missing = [section.title() for section in required if section not in sections]
+    if missing:
+        warns.append((-1, "Missing required paper components: %s" % ", ".join(missing)))
+    return warns
+
+
+def check_section_balance():
+    warns = []
+    sections = extract_section_ranges()
+    if len(sections) < 2:
+        return warns
+    word_counts = []
+    filtered_sections = [section for section in sections if not section["starred"] and not section["in_appendix"]]
+    if len(filtered_sections) < 2:
+        return warns
+    for section in filtered_sections:
+        text = " ".join(tex_lines_clean[section["start"]:section["end"]])
+        word_counts.append(len(re.findall("\\b\\w+\\b", text)))
+    sorted_counts = sorted(word_counts)
+    median = sorted_counts[len(sorted_counts) // 2]
+    if median == 0:
+        return warns
+    for section, count in zip(filtered_sections, word_counts):
+        if count < max(40, int(median * 0.3)):
+            warns.append((section["line"], "Section '%s' is extremely short compared to the rest of the paper" % section["title"], section["span"]))
+        elif count > max(600, int(median * 2.5)):
+            warns.append((section["line"], "Section '%s' is extremely long compared to the rest of the paper" % section["title"], section["span"]))
+    return warns
+
+
+def check_deprecated():
+    warns = []
+    patterns = [
+        (re.compile("\\{\\\\bf\\b"), "Deprecated font switch \\bf, use \\textbf{...}"),
+        (re.compile("\\{\\\\it\\b"), "Deprecated font switch \\it, use \\textit{...}"),
+        (re.compile("\\{\\\\rm\\b"), "Deprecated font switch \\rm, use \\textrm{...}"),
+        (re.compile("\\{\\\\sc\\b"), "Deprecated font switch \\sc, use \\textsc{...}"),
+        (re.compile("\\{\\\\tt\\b"), "Deprecated font switch \\tt, use \\texttt{...}"),
+        (re.compile("\\$\\$"), "Deprecated display math $$...$$, use \\[...\\] or an equation environment"),
+        (re.compile("\\\\centerline\\b"), "Deprecated \\centerline command"),
+        (re.compile("\\\\epsfig\\b"), "Deprecated \\epsfig command, use \\includegraphics")
+    ]
+    for i, l in enumerate(tex_lines_clean):
+        for pattern, message in patterns:
+            match = pattern.search(l)
+            if match:
+                warns.append((i, message, match.span()))
+    return warns
+
+
+def check_package_conflict():
+    warns = []
+    packages = {}
+    for i, l in enumerate(tex_lines_clean):
+        for match in re.finditer("\\\\usepackage(?:\\[[^\\]]+\\])?\\{([^\\}]+)\\}", l):
+            for package in [p.strip() for p in match.group(1).split(",")]:
+                packages[package] = i
+    conflicts = [
+        ("subfigure", "subcaption"),
+        ("subfig", "subcaption"),
+        ("natbib", "biblatex")
+    ]
+    for left, right in conflicts:
+        if left in packages and right in packages:
+            warns.append((packages[right], "Conflicting packages loaded together: %s and %s" % (left, right)))
+    return warns
+
+
+def check_duplicate_word():
+    warns = []
+    for i, l in enumerate(tex_lines_clean):
+        if in_code(i):
+            continue
+        match = re.search("\\b(\\w+)\\s+\\1\\b", l, re.IGNORECASE)
+        if match:
+            warns.append((i, "Duplicated adjacent word '%s'" % match.group(1), match.span()))
+    return warns
+
+
+def check_paragraph_length():
+    warns = []
+    for start, end, text in get_paragraphs():
+        if in_list(start):
+            continue
+        if not re.search("[.!?]", text):
+            continue
+        sentence_count = count_sentences(text)
+        if sentence_count == 2:
+            warns.append((start, "Paragraph has only %d sentence%s; expected at least 3" % (sentence_count, "" if sentence_count == 1 else "s"), (0, len(tex_lines[start]))))
+    return warns
+
+
+def check_section_length():
+    warns = []
+    for section in extract_section_ranges():
+        if section["starred"] or section["in_appendix"]:
+            continue
+        paragraphs = [p for p in get_paragraphs(section["start"], section["end"]) if p[0] >= section["start"] and p[0] < section["end"]]
+        if len(paragraphs) < 3:
+            warns.append((section["line"], "Section '%s' has only %d paragraph%s; expected at least 3" % (section["title"], len(paragraphs), "" if len(paragraphs) == 1 else "s"), section["span"]))
+    return warns
+
+
+def check_subsection_count_sanity():
+    warns = []
+    sections = extract_section_ranges()
+    for idx, section in enumerate(sections):
+        if section["starred"] or section["in_appendix"]:
+            continue
+        next_line = sections[idx + 1]["line"] if idx + 1 < len(sections) else len(tex_lines)
+        count = 0
+        for line_no in range(section["start"], next_line):
+            if re.search("\\\\subsection\\*?\\{", tex_lines_clean[line_no]):
+                count += 1
+        if count == 1 or count > 10:
+            warns.append((section["line"], "Section '%s' has %d subsection%s; expected 0 or between 2 and 10" % (section["title"], count, "" if count == 1 else "s"), section["span"]))
+    return warns
+
+
 def check_large_numbers_without_si():
     warns = []
     for i, l in enumerate(tex_lines):
-        n = re.search("[\\s\(]\\d{5,}[\\s\),\.]", tex_lines[i]) 
+        n = re.search(r"[\s(]\d{5,}[\s),\.]", tex_lines[i]) 
         if n and not in_any_float(i):
             warns.append((i, "Large number without formating, consider using siunit", n.span()))
     return warns
@@ -320,7 +677,7 @@ def check_labels_referenced():
     warns = []
     labels = [] #re.findall("\\\\label\{([^\\}]+)\}", tex)
     for i, l in enumerate(tex_lines_clean):
-        lab = re.search("\\\\label\{([^\\}]+)\}", l)
+        lab = re.search(r"\\label\{([^\}]+)\}", l)
         if lab:
             labels.append((lab.group(1), i, lab.span()))
     for lab in labels:
@@ -438,7 +795,7 @@ def check_and_or():
 
 def check_ellipsis():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         el = re.search("\\w+\\.\\.\\.", l)
         if el:
             warns.append((i, "Ellipsis \"...\" discouraged in academic writing", el.span()))
@@ -534,12 +891,12 @@ def check_mixed_compact_and_item():
     warns = []
     if "\\begin{compactenum}" in tex:
         for i, l in enumerate(tex_lines):
-            it = re.search("\\\\begin\{enumerate\}", l)
+            it = re.search(r"\\begin\{enumerate\}", l)
             if it:
                 warns.append((i, "compactenum mixed with enumerate", it.span()))
     if "\\begin{compactitem}" in tex:
         for i, l in enumerate(tex_lines):
-            it = re.search("\\\\begin\{itemize\}", l)
+            it = re.search(r"\\begin\{itemize\}", l)
             if it:
                 warns.append((i, "compactitem mixed with itemize", it.span()))
     return warns
@@ -550,14 +907,14 @@ def check_center_in_float():
     if "center" in envs:
         for c in envs["center"]:
             if in_any_float(c[0]):
-                warns.append((c[0], "Use \\centering instead of \\begin{center} inside floats", re.search("\\\\begin\{center\}", tex_lines[c[0]]).span()))
+                warns.append((c[0], "Use \\centering instead of \\begin{center} inside floats", re.search(r"\\begin\{center\}", tex_lines[c[0]]).span()))
     return warns
 
 
 def check_appendix():
     warns = []
     for i, l in enumerate(tex_lines):
-        ap = re.search("\\\\begin\{appendix\}", l)
+        ap = re.search(r"\\begin\{appendix\}", l)
         if ap:
             warns.append((i, "Use \\appendix instead of \\begin{appendix}", ap.span()))
     return warns
@@ -566,7 +923,7 @@ def check_appendix():
 def check_eqnarray():
     warns = []
     for i, l in enumerate(tex_lines):
-        ap = re.search("\\\\begin\{eqnarray\}", l)
+        ap = re.search(r"\\begin\{eqnarray\}", l)
         if ap:
             warns.append((i, "Use \\begin{align} instead of \\begin{eqnarray}", ap.span()))
     return warns
@@ -686,33 +1043,40 @@ def check_brackets_space():
 
 def check_acronym_capitalization():
     warns = []
-    acronyms = []
+    acronyms = set()
     acronym_first = {}
     for i, l in enumerate(tex_lines_clean):
         if in_code(i): continue
-        p = re.search("\\b[A-Z]{3,}\\b", l)
-        if p and p.group() not in acronyms:
+        for p in re.finditer("\\b[A-Z]{3,}\\b", l):
+            acronym = p.group()
             pos = p.span()[0]
             if pos > 0 and l[pos - 1] == '\\':
                 continue
-            acronyms.append(p.group())
-            acronym_first[p.group()] = i
+            if acronym not in acronyms:
+                acronyms.add(acronym)
+                acronym_first[acronym] = i
     for i, l in enumerate(tex_lines_clean):
         if in_code(i): continue
-        for a in acronyms:
-            p = re.search("\\b%s\\b" % a, l.upper())
-            if p:
-                found = l[p.span()[0]:p.span()[1]]
-                if found[-1] == 's': # ignore plural
-                    found = found[:-1]
-                if l[:p.span()[0]].count("{") != l[:p.span()[0]].count("}"): # probably inside a reference or label
-                    continue
-                if "@" in l: # probably a mail address
-                    continue
-                if p.span()[0] > 0 and l[p.span()[0] - 1] == '\\':
-                    continue # probably a macro
-                if not found.isupper():
-                    warns.append((i, "(Potential) acronym with wrong capitalization (first defined in Line %d)" % (acronym_first[a] + 1), p.span()))
+        if "@" in l:
+            continue
+        for p in re.finditer("\\b[A-Za-z]{3,}\\b", l):
+            found = p.group()
+            if p.span()[0] > 0 and l[p.span()[0] - 1] == '\\':
+                continue # probably a macro
+            if l[:p.span()[0]].count("{") != l[:p.span()[0]].count("}"):
+                continue # probably inside a reference or label
+            canonical = found.upper()
+            if found.endswith("s") and found[:-1].upper() in acronyms:
+                found = found[:-1]
+                canonical = found.upper()
+            if canonical not in acronyms:
+                continue
+            if acronym_first[canonical] >= i:
+                continue
+            if found.islower():
+                continue
+            if not found.isupper():
+                warns.append((i, "(Potential) acronym with wrong capitalization (first defined in Line %d)" % (acronym_first[canonical] + 1), p.span()))
     return warns  
 
 def check_numeral():
@@ -765,8 +1129,13 @@ def check_colors():
         for c in cols:
             w = re.search(c, l)
             if w:
+                prefix = l[:w.span()[0]].rstrip()
                 # check for = or { in front of color
                 if w.span()[0] > 0 and (l[w.span()[0] - 1] == "=" or l[w.span()[0] - 1] == "{"): continue
+                if re.search(r"\\[A-Za-z@]+\*?(?:\{[^{}]*\})*\[[^\]]*$", prefix):
+                    continue
+                if prefix.endswith("[") or prefix.endswith(","):
+                    continue
                 # reduce false positives by looking for modifiers
                 mod = False
                 for m in modifiers:
@@ -782,7 +1151,7 @@ def check_inconsistent_word_style():
     warns = []
     word_style = {}
     for i, l in enumerate(tex_lines_clean):
-        styled = re.search("\\\\text([^\\{]+)\{([^\\}]+)\}", l)
+        styled = re.search(r"\\text([^\{]+)\{([^\}]+)\}", l)
         if styled and "newcommand" not in l:
             if styled[2] in word_style:
                 if styled[1] != word_style[styled[2]][1][1]:
@@ -796,7 +1165,7 @@ def check_missing_word_style():
     warns = []
     word_style = {}
     for i, l in enumerate(tex_lines_clean):
-        styled = re.search("\\\\text([^\\{]+)\{([^\\}]+)\}", l)
+        styled = re.search(r"\\text([^\{]+)\{([^\}]+)\}", l)
         if styled:
             if len(styled[2]) <= 3: continue # reduce false positives for variables
             if styled[2] in word_style:
@@ -809,10 +1178,12 @@ def check_missing_word_style():
         for s in word_style.keys():
             if word_style[s][2] == 1: continue # reduce false positives, e.g., when the word is emphasized once
             try:
-                w = re.search("\\b%s\\b" % s, l)
+                w = re.search("\\b%s\\b" % re.escape(s), l)
             except:
                 continue
             if w:
+                if w.span()[0] > 0 and l[w.span()[0] - 1] == "\\":
+                    continue
                 if w.span()[0] > 0 and l[w.span()[0] - 1] != "{":
                     warns.append((i, "Word '%s' used without a style, used with \\text%s before at line %d (and %d other location%s)" % (s, word_style[s][1][1], word_style[s][0] + 1, word_style[s][2], "s" if word_style[s][2] == 1 else ""), w.span()))
     return warns
@@ -824,6 +1195,10 @@ def print_warnings(warn, output = True):
     for cw in sorted_warn:
         w = cw[0]
         if w[0] != -1 and tex_lines[w[0]].strip().startswith("%"):
+            continue
+        if w[0] != -1 and in_comment(w[0]):
+            continue
+        if w[0] != -1 and in_code(w[0]) and cw[1] not in CODE_WARNING_EXCEPTIONS:
             continue
 
         if output: 
@@ -852,9 +1227,12 @@ CATEGORY_REFERENCE = 16
 
 checks = [
     (check_space_before_cite,           CATEGORY_TYPOGRAPHY, "cite-space"),
+    (check_math_text_mix,               CATEGORY_TYPOGRAPHY, "math-text-mix"),
+    (check_units,                       CATEGORY_TYPOGRAPHY, "units"),
     (check_figure_alignment,            CATEGORY_STYLE,      "figure-alignment"),
     (check_table_alignment,             CATEGORY_STYLE,      "table-alignment"),
     (check_listing_alignment,           CATEGORY_STYLE,      "listing-alignment"),
+    (check_float_placement,             CATEGORY_STYLE,      "float-placement"),
     (check_figure_has_label,            CATEGORY_REFERENCE,  "figure-label"),
     (check_table_has_label,             CATEGORY_REFERENCE,  "table-label"),
     (check_listing_has_label,           CATEGORY_REFERENCE,  "listing-label"),
@@ -868,6 +1246,8 @@ checks = [
     (check_listing_caption_label_order, CATEGORY_REFERENCE,  "listing-caption-order"),
     (check_todos,                       CATEGORY_GENERAL,    "todo"),
     (check_notes,                       CATEGORY_GENERAL,    "note"),
+    (check_unused_macro,                CATEGORY_GENERAL,    "unused-macro"),
+    (check_required_sections,           CATEGORY_GENERAL,    "required-sections"),
     (check_math_numbers,                CATEGORY_TYPOGRAPHY, "math-numbers"),
     (check_large_numbers_without_si,    CATEGORY_TYPOGRAPHY, "si"),
     (check_listing_in_correct_float,    CATEGORY_REFERENCE,  "listing-float"),
@@ -880,9 +1260,11 @@ checks = [
     (check_section_capitalization,      CATEGORY_VISUAL,     "capitalization"),
     (check_quotation,                   CATEGORY_TYPOGRAPHY, "quotes"),
     (check_hline_in_table,              CATEGORY_VISUAL,     "hline"),
+    (check_duplicate_word,              CATEGORY_TYPOGRAPHY, "duplicate-word"),
     (check_space_before_punctuation,    CATEGORY_TYPOGRAPHY, "punctuation-space"),
     (check_headers_without_text,        CATEGORY_VISUAL,     "two-header"),
     (check_one_sentence_paragraphs,     CATEGORY_VISUAL,     "single-sentence"),
+    (check_paragraph_length,            CATEGORY_VISUAL,     "paragraph-length"),
     (check_multiple_sentences_per_line, CATEGORY_GENERAL,    "multiple-sentences"),
     (check_unbalanced_brackets,         CATEGORY_TYPOGRAPHY, "unbalanced-brackets"),
     (check_and_or,                      CATEGORY_TYPOGRAPHY, "and-or"),
@@ -891,13 +1273,18 @@ checks = [
     (check_punctuation_end_of_line,     CATEGORY_TYPOGRAPHY, "punctuation"),
     (check_footnote,                    CATEGORY_TYPOGRAPHY, "footnote"),
     (check_table_vertical_lines,        CATEGORY_VISUAL,     "vline"),
+    (check_section_balance,             CATEGORY_VISUAL,     "section-balance"),
+    (check_section_length,              CATEGORY_VISUAL,     "section-length"),
     (check_table_top_caption,           CATEGORY_STYLE,      "table-top-caption"),
     (check_will,                        CATEGORY_GENERAL,    "will"),
     (check_subsection_count,            CATEGORY_VISUAL,     "single-subsection"),
+    (check_subsection_count_sanity,     CATEGORY_VISUAL,     "subsection-count"),
     (check_mixed_compact_and_item,      CATEGORY_VISUAL,     "mixed-compact"),
     (check_center_in_float,             CATEGORY_VISUAL,     "float-center"),
     (check_appendix,                    CATEGORY_STYLE,      "appendix"),
     (check_eqnarray,                    CATEGORY_VISUAL,     "eqnarray"),
+    (check_deprecated,                  CATEGORY_STYLE,      "deprecated"),
+    (check_package_conflict,            CATEGORY_STYLE,      "package-conflict"),
     (check_acm_pc,                      CATEGORY_STYLE,      "inclusion"),
     (check_cite_noun,                   CATEGORY_STYLE,      "cite-noun"),
     (check_cite_duplicate,              CATEGORY_REFERENCE,  "cite-duplicate"),
@@ -1032,4 +1419,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

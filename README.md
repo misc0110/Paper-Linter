@@ -51,6 +51,14 @@ This category includes general mistakes and discouraged things (switch `general`
 * **Description**: Warns if numbers 3 to 12 are written as words instead of numbers
 * **Switch**: `numeral`
 
+#### Dead Macros
+* **Description**: Warns if a defined macro is never used
+* **Switch**: `unused-macro`
+
+#### Missing Paper Components
+* **Description**: Warns if required components such as Abstract, Introduction, or Conclusion are missing
+* **Switch**: `required-sections`
+
 
 ### Typography
 This category includes typography-related issues, such as wrong punctuation (switch `typography`).
@@ -63,6 +71,10 @@ This category includes typography-related issues, such as wrong punctuation (swi
 * **Description**: Warns if the math environment is used purely to format numbers
 * **Switch**: `math-numbers`
 
+#### Math/Text Mode Mixing
+* **Description**: Warns if text-like content is used inside math mode without explicit text markup
+* **Switch**: `math-text-mix`
+
 #### Large Numbers without siunit
 * **Description**: Warns if large numbers are not formatted with the `sinuit` package
 * **Switch**: `si`
@@ -70,6 +82,10 @@ This category includes typography-related issues, such as wrong punctuation (swi
 #### Percentage without siunit
 * **Description**: Warns if percentages are not formatted with the `siunit` package
 * **Switch**: `percentage`
+
+#### Units Formatting
+* **Description**: Warns if units are attached to numbers directly or numeric units are not formatted with `siunitx`
+* **Switch**: `units`
 
 #### Wrong Quotation Marks
 * **Description**: Warns if the wrong quotation marks (") are used
@@ -119,6 +135,10 @@ This category includes typography-related issues, such as wrong punctuation (swi
 * **Description**: Warns if the same word is sometimes used with a text style (e.g., `\textit` and `\texttt`) and sometimes without
 * **Switch**: `missing-textstyle`
 
+#### Repeated Words
+* **Description**: Warns if the same word appears twice in a row
+* **Switch**: `duplicate-word`
+
 
 ### Visual
 This category includes warning regarding code that is visually not optimal and can be improved to make the paper look better (switch `visual`).
@@ -135,6 +155,10 @@ This category includes warning regarding code that is visually not optimal and c
 * **Description**: Warns if a paragraph consists of only a single sentence
 * **Switch**: `single-sentence`
 
+#### Paragraph Structure Rule
+* **Description**: Warns if a paragraph has fewer than three sentences
+* **Switch**: `paragraph-length`
+
 #### Tables with Vertical Lines
 * **Description**: Warns if vertical lines are used in tables
 * **Switch**: `vline`
@@ -142,6 +166,18 @@ This category includes warning regarding code that is visually not optimal and c
 #### Single subsection in a Section
 * **Description**: Warns if a section has only one explicit subsection
 * **Switch**: `single-subsection`
+
+#### Section Length Imbalance
+* **Description**: Warns if a section is extremely short or long relative to the rest of the paper
+* **Switch**: `section-balance`
+
+#### Section Structure Rule
+* **Description**: Warns if a section has fewer than three paragraphs
+* **Switch**: `section-length`
+
+#### Subsection Count Sanity
+* **Description**: Warns if a section has fewer than two or more than ten subsections
+* **Switch**: `subsection-count`
 
 #### Mixed Compact and Regular Lists
 * **Description**: Warns if both `compactitem` and `itemize` (or `compactenum` and `enumerate`) are used
@@ -199,6 +235,10 @@ This category includes warning of things that are discouraged or wrong for the s
 * **Description**: Warns if a listing has no explicit alignment
 * **Switch**: `listing-alignment`
 
+#### Float Placement Specifiers
+* **Description**: Warns if floats use discouraged `[h]` or `[H]` placement specifiers
+* **Switch**: `float-placement`
+
 #### Non-inclusive Wording
 * **Description**: Warns if non-inclusive terms are used (based on the [ACM Guidelines](https://www.acm.org/diversity-inclusion/words-matter))
 * **Switch**: `inclusion`
@@ -214,6 +254,14 @@ This category includes warning of things that are discouraged or wrong for the s
 #### Sentence starting with a Conjunction 
 * **Description**: Warns if a sentence starts with a conjunction ("And", "But", "Or")
 * **Switch**: `conjunction-start`
+
+#### Deprecated Commands
+* **Description**: Warns if deprecated LaTeX commands such as `\bf`, `$$...$$`, or `\epsfig` are used
+* **Switch**: `deprecated`
+
+#### Package Conflicts
+* **Description**: Warns if known conflicting packages are loaded together
+* **Switch**: `package-conflict`
 
 
 ### References
