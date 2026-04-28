@@ -255,8 +255,17 @@ def strip_explicit_math_text(content):
         "textbf",
         "textsf",
         "texttt",
+        "textsc",
         "mbox",
-        "operatorname"
+        "operatorname",
+        "mathrm",
+        "mathit",
+        "mathbf",
+        "mathsf",
+        "mathtt",
+        "mathcal",
+        "mathbb",
+        "mathfrak",
     ]
     pattern = re.compile(r"\\(?:%s)\*?\{[^{}]*\}" % "|".join(explicit_text_commands))
     while True:
