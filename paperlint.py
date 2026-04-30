@@ -22,9 +22,11 @@ if(not sys.argv[1].endswith(".tex")):
 else:
     tex_files = [sys.argv[1]]
 
-tex = None   
+tex = None
 tex_lines = None
 tex_lines_clean = None
+tex_lines_math_masked = None
+tex_lines_math_texttt_masked = None
 in_env = None
 envs = None
 
@@ -40,7 +42,7 @@ SECTION_COMMAND_RE = re.compile("\\\\(section|subsection|subsubsection|paragraph
 SENTENCE_END_RE = re.compile(r"(?<!\\)[.!?](?=(?:['\")\]}]*)(?:\s|$))")
     
 def next_file(file):
-    global tex, tex_lines, tex_lines_clean, in_env, envs
+    global tex, tex_lines, tex_lines_clean, tex_lines_math_masked, tex_lines_math_texttt_masked, in_env, envs
     try:
         tex = open(file).read()
     except:
@@ -49,11 +51,14 @@ def next_file(file):
 
     tex_lines = tex.split("\n")
     tex_lines_clean = tex.split("\n")
+    tex_lines_math_masked = tex.split("\n")
+    tex_lines_math_texttt_masked = tex.split("\n")
     in_env = {}
     envs = {}
 
 
 def preprocess():
+    global tex_lines_math_masked, tex_lines_math_texttt_masked
     env = list(set(re.findall(r"\\begin\{(\w+)\*?\}", tex)))
     for e in env:
         in_env[e] = []
@@ -86,6 +91,11 @@ def preprocess():
         for i in range(len(tex_lines_clean)):
             if in_env["comment"][i]:
                 tex_lines_clean[i] = ""
+    tex_lines_math_masked = mask_math_in_lines(tex_lines_clean)
+    tex_lines_math_texttt_masked = [
+        mask_spans(line, get_command_brace_spans(line, "texttt"))
+        for line in tex_lines_math_masked
+    ]
 
 
 def in_any_env(line):
@@ -240,10 +250,126 @@ def get_paragraphs(start=0, end=None):
 
 def get_math_spans(line):
     spans = []
-    for pattern in [r"\$(.+?)\$", r"\\\((.+?)\\\)"]:
+    for pattern in [r"(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)", r"\\\((.+?)\\\)"]:
         for match in re.finditer(pattern, line):
             spans.append((match.start(), match.end(), match.group(1)))
     return spans
+
+
+def mask_spans(line, spans):
+    if not spans:
+        return line
+    chars = list(line)
+    for start, end in spans:
+        for pos in range(max(0, start), min(len(chars), end)):
+            chars[pos] = " "
+    return "".join(chars)
+
+
+def get_inline_math_spans(line):
+    spans = []
+    i = 0
+    math_start = None
+    while i < len(line):
+        if line.startswith(r"\(", i):
+            if math_start is None:
+                math_start = i
+            else:
+                spans.append((math_start, i + 2))
+                math_start = None
+            i += 2
+            continue
+        if line[i] == "$" and (i == 0 or line[i - 1] != "\\"):
+            if math_start is None:
+                math_start = i
+            else:
+                spans.append((math_start, i + 1))
+                math_start = None
+        i += 1
+    return spans
+
+
+def get_command_brace_spans(line, command):
+    spans = []
+    pattern = re.compile(r"\\%s\*?\{" % re.escape(command))
+    for match in pattern.finditer(line):
+        start = match.start()
+        pos = match.end() - 1
+        depth = 0
+        while pos < len(line):
+            char = line[pos]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    spans.append((start, pos + 1))
+                    break
+            pos += 1
+    return spans
+
+
+def mask_math_in_lines(lines):
+    masked_lines = []
+    state = None
+    for line in lines:
+        chars = list(line)
+        i = 0
+        while i < len(line):
+            if state is None:
+                if line.startswith(r"\(", i):
+                    chars[i:i + 2] = [" ", " "]
+                    state = r"\("
+                    i += 2
+                    continue
+                if line.startswith(r"\[", i):
+                    chars[i:i + 2] = [" ", " "]
+                    state = r"\["
+                    i += 2
+                    continue
+                if line.startswith("$$", i) and (i == 0 or line[i - 1] != "\\"):
+                    chars[i:i + 2] = [" ", " "]
+                    state = "$$"
+                    i += 2
+                    continue
+                if line[i] == "$" and (i == 0 or line[i - 1] != "\\"):
+                    chars[i] = " "
+                    state = "$"
+            else:
+                if state == r"\(" and line.startswith(r"\)", i):
+                    chars[i:i + 2] = [" ", " "]
+                    state = None
+                    i += 2
+                    continue
+                if state == r"\[" and line.startswith(r"\]", i):
+                    chars[i:i + 2] = [" ", " "]
+                    state = None
+                    i += 2
+                    continue
+                if state == "$$" and line.startswith("$$", i) and (i == 0 or line[i - 1] != "\\"):
+                    chars[i:i + 2] = [" ", " "]
+                    state = None
+                    i += 2
+                    continue
+                if state == "$" and line[i] == "$" and (i == 0 or line[i - 1] != "\\"):
+                    chars[i] = " "
+                    state = None
+                    i += 1
+                    continue
+                chars[i] = " "
+            i += 1
+        masked_lines.append("".join(chars))
+    return masked_lines
+
+
+def mask_inline_math(line):
+    return mask_spans(line, get_inline_math_spans(line))
+
+
+def mask_inline_math_and_texttt(line):
+    spans = get_inline_math_spans(line)
+    spans.extend(get_command_brace_spans(line, "texttt"))
+    return mask_spans(line, spans)
 
 
 def strip_explicit_math_text(content):
@@ -437,7 +563,9 @@ def check_math_text_mix():
             normalized = re.sub("\\\\[A-Za-z]+", " ", normalized)
             normalized = re.sub("[\\^_{}&=+\\-*/(),.;:0-9\\s]", " ", normalized)
             words = re.findall("[A-Za-z]{2,}", normalized)
-            if words:
+            prose_words = [word for word in words if word.islower()]
+            prose_like_words = [word for word in prose_words if len(word) >= 4]
+            if prose_like_words:
                 warns.append((i, "Text-like content in math mode, mark it explicitly with \\text{...}", (start, end)))
                 break
     return warns
@@ -451,15 +579,16 @@ def check_units():
             continue
         if any(cmd in l for cmd in ["\\SI{", "\\si{", "\\qty{", "\\unit{"]):
             continue
-        match = unit_pattern.search(l)
+        masked = tex_lines_math_masked[i]
+        match = unit_pattern.search(masked)
         if match:
-            before = l[match.start() - 1] if match.start() > 0 else ""
-            after = l[match.end()] if match.end() < len(l) else ""
+            before = masked[match.start() - 1] if match.start() > 0 else ""
+            after = masked[match.end()] if match.end() < len(masked) else ""
             if before.isalnum() or before in ["-", "_"]:
                 continue
             if after.isalnum() or after in ["-", "_"]:
                 continue
-            prefix = l[:match.start()].rstrip()
+            prefix = masked[:match.start()].rstrip()
             if re.search(r"\\[A-Za-z@]+\*?(?:\{[^{}]*\})*\{$", prefix):
                 continue
             if re.search(r"(?:^|[,\[])\s*[A-Za-z@][A-Za-z0-9@ _-]*=\s*$", prefix):
@@ -786,9 +915,12 @@ def check_multiple_sentences_per_line():
 def check_unbalanced_brackets():
     warns = []
     for i, l in enumerate(tex_lines):
-        if l.count("(") != l.count(")") and not in_code(i):
-            first = min(l.index("(") if l.count("(") > 0 else len(l), l.index(")") if l.count(")") > 0 else len(l))
-            last = max(l.rindex("(") if l.count("(") > 0 else len(l), l.rindex(")") if l.count(")") > 0 else len(l))
+        if in_code(i):
+            continue
+        masked = tex_lines_math_masked[i]
+        if masked.count("(") != masked.count(")"):
+            first = min(masked.index("(") if masked.count("(") > 0 else len(masked), masked.index(")") if masked.count(")") > 0 else len(masked))
+            last = max(masked.rindex("(") if masked.count("(") > 0 else len(masked), masked.rindex(")") if masked.count(")") > 0 else len(masked))
             warns.append((i, "Mismatch of opening and closing parenthesis", (first, last)))
     return warns
 
@@ -1035,18 +1167,16 @@ def check_brackets_space():
     warns = []
     for i, l in enumerate(tex_lines_clean):
         if in_code(i) or in_equation(i) or (len(l.strip()) > 0 and l.strip()[0] in ["\\", "%"]): continue
-        p = re.search("[^\\s\\{~\\\\]\\([^(s\\))]", l.rstrip())
+        masked = tex_lines_math_texttt_masked[i].rstrip()
+        p = re.search("[^\\s\\{~\\\\]\\([^(s\\))]", masked)
         if p:
-            if l.rstrip()[:p.span()[1]].count("$") % 2 == 0: # only if it is not in an equation
-                warns.append((i, "There must be a space before an opening parenthesis", p.span()))
-        p = re.search("\\(\\s", l.rstrip())
+            warns.append((i, "There must be a space before an opening parenthesis", p.span()))
+        p = re.search("\\(\\s", masked)
         if p:
-            if l.rstrip()[:p.span()[1]].count("$") % 2 == 0: # only if it is not in an equation
-                warns.append((i, "There must be no space after an opening parenthesis", p.span()))
-        p = re.search("\\s\\)", l.rstrip())
+            warns.append((i, "There must be no space after an opening parenthesis", p.span()))
+        p = re.search("\\s\\)", masked)
         if p:
-            if l.rstrip()[:p.span()[1]].count("$") % 2 == 0: # only if it is not in an equation
-                warns.append((i, "There must be no space before a closing parenthesis", p.span()))
+            warns.append((i, "There must be no space before a closing parenthesis", p.span()))
     return warns  
 
 
