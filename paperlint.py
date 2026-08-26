@@ -23,6 +23,7 @@ else:
     tex_files = [sys.argv[1]]
 
 tex = None
+tex_clean = None
 tex_lines = None
 tex_lines_clean = None
 tex_lines_math_masked = None
@@ -41,8 +42,81 @@ CODE_WARNING_EXCEPTIONS = {
 SECTION_COMMAND_RE = re.compile("\\\\(section|subsection|subsubsection|paragraph)\\*?\\{([^\\}]+)\\}")
 SENTENCE_END_RE = re.compile(r"(?<!\\)[.!?](?=(?:['\")\]}]*)(?:\s|$))")
     
+def strip_line_comment(line):
+    """Return the source preceding the first unescaped LaTeX comment marker."""
+    for index, char in enumerate(line):
+        if char != "%":
+            continue
+        backslashes = 0
+        position = index - 1
+        while position >= 0 and line[position] == "\\":
+            backslashes += 1
+            position -= 1
+        if backslashes % 2 == 0:
+            return line[:index]
+    return line
+
+
+def mask_comment_environments(lines):
+    """Blank comment-environment contents while preserving source line numbers."""
+    depth = 0
+    begin = re.compile(r"\\begin\{comment\*?\}")
+    end = re.compile(r"\\end\{comment\*?\}")
+    for index, line in enumerate(lines):
+        starts = len(begin.findall(line))
+        ends = len(end.findall(line))
+        if depth or starts:
+            lines[index] = ""
+        depth = max(0, depth + starts - ends)
+
+
+def mask_iffalse_blocks(lines):
+    """Blank inactive TeX conditional branches while preserving source line numbers."""
+    conditional_tokens = re.compile(
+        r"\\(?:iffalse|iftrue|if(?:[A-Z][A-Za-z@]*|cat|x|num|dim|odd|vmode|hmode|"
+        r"mmode|inner|void|hbox|vbox|eof|case|defined|csname|incsname|fontchar|"
+        r"primitive|condition)?|else|fi)\b"
+    )
+    conditionals = []
+
+    def is_active():
+        return all(state is not False for state in conditionals)
+
+    for line_number, line in enumerate(lines):
+        parts = []
+        position = 0
+        for match in conditional_tokens.finditer(line):
+            if is_active():
+                parts.append(line[position:match.start()])
+            else:
+                parts.append(" " * (match.start() - position))
+
+            token = match.group()
+            parts.append(" " * len(token))
+            if token == r"\iffalse":
+                conditionals.append(False)
+            elif token.startswith(r"\if"):
+                # Other conditionals may be defined by the document; preserve both
+                # branches but track nesting so their \fi does not end \iffalse.
+                conditionals.append(None)
+            elif token == r"\else" and conditionals:
+                if conditionals[-1] is False:
+                    conditionals[-1] = True
+                elif conditionals[-1] is True:
+                    conditionals[-1] = False
+            elif token == r"\fi" and conditionals:
+                conditionals.pop()
+            position = match.end()
+
+        if is_active():
+            parts.append(line[position:])
+        else:
+            parts.append(" " * (len(line) - position))
+        lines[line_number] = "".join(parts)
+
+
 def next_file(file):
-    global tex, tex_lines, tex_lines_clean, tex_lines_math_masked, tex_lines_math_texttt_masked, in_env, envs
+    global tex, tex_clean, tex_lines, tex_lines_clean, tex_lines_math_masked, tex_lines_math_texttt_masked, in_env, envs
     try:
         tex = open(file).read()
     except:
@@ -50,7 +124,10 @@ def next_file(file):
         sys.exit(1)
 
     tex_lines = tex.split("\n")
-    tex_lines_clean = tex.split("\n")
+    tex_lines_clean = [strip_line_comment(line) for line in tex_lines]
+    mask_comment_environments(tex_lines_clean)
+    mask_iffalse_blocks(tex_lines_clean)
+    tex_clean = "\n".join(tex_lines_clean)
     tex_lines_math_masked = tex.split("\n")
     tex_lines_math_texttt_masked = tex.split("\n")
     in_env = {}
@@ -59,14 +136,14 @@ def next_file(file):
 
 def preprocess():
     global tex_lines_math_masked, tex_lines_math_texttt_masked
-    env = list(set(re.findall(r"\\begin\{(\w+)\*?\}", tex)))
+    env = list(set(re.findall(r"\\begin\{(\w+)\*?\}", tex_clean)))
     for e in env:
         in_env[e] = []
         envs[e] = []
         current_start = -1
         begin_pattern = re.compile(r"\\begin\{%s\*?\}" % re.escape(e))
         end_pattern = re.compile(r"\\end\{%s\*?\}" % re.escape(e))
-        for i, l in enumerate(tex_lines):
+        for i, l in enumerate(tex_lines_clean):
             if begin_pattern.search(l):
                 in_env[e].append(True)
                 current_start = i
@@ -78,19 +155,6 @@ def preprocess():
                     in_env[e].append(False)
                 else:
                     in_env[e].append(in_env[e][-1])
-            if "%" in tex_lines[i]:
-                idx = tex_lines[i].index("%")
-                if idx > 0 and tex_lines[i][idx - 1] != "\\":
-                    tex_lines_clean[i] = tex_lines[i][0:max(0, (tex_lines[i].index("%") - 1))]
-                    if tex_lines_clean[i].startswith("%"): tex_lines_clean[i] = ""
-                else:
-                    tex_lines_clean[i] = tex_lines[i]
-            else:
-                tex_lines_clean[i] = tex_lines[i]
-    if "comment" in in_env:
-        for i in range(len(tex_lines_clean)):
-            if in_env["comment"][i]:
-                tex_lines_clean[i] = ""
     tex_lines_math_masked = mask_math_in_lines(tex_lines_clean)
     tex_lines_math_texttt_masked = [
         mask_spans(line, get_command_brace_spans(line, "texttt"))
@@ -167,8 +231,8 @@ def get_section_entries():
 
 def extract_section_ranges():
     entries = [e for e in get_section_entries() if e["level"] == "section"]
-    appendix_line = tex.find("\\appendix")
-    appendix_line = tex[:appendix_line].count("\n") if appendix_line != -1 else None
+    appendix_line = tex_clean.find("\\appendix")
+    appendix_line = tex_clean[:appendix_line].count("\n") if appendix_line != -1 else None
     ranges = []
     for idx, entry in enumerate(entries):
         start = entry["line"] + 1
@@ -402,7 +466,7 @@ def strip_explicit_math_text(content):
 
 def check_space_before_cite():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         b = re.search("[^ ~]\\\\cite", l)
         if b:
             if not "\\etal\\cite" in l:
@@ -411,7 +475,7 @@ def check_space_before_cite():
 
 def check_float_alignment(env):
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         b = re.search(r"\\begin\{%s\}" % env, l)
         if b:
             if not re.search(r"%s}\[[^\]]*[htbH][^\]]*\]" % env, l):
@@ -433,7 +497,7 @@ def check_float_has_label(env):
     for r in envs[env]:
         label = False
         for i in range(*r):
-            b = re.search(r"\\label\{", tex_lines[i])
+            b = re.search(r"\\label\{", tex_lines_clean[i])
             if b:
                 label = True
         if not label:
@@ -447,7 +511,7 @@ def check_float_has_caption(env):
     for r in envs[env]:
         label = False
         for i in range(*r):
-            b = re.search(r"\\caption\{", tex_lines[i])
+            b = re.search(r"\\caption\{", tex_lines_clean[i])
             if b:
                 label = True
         if not label:
@@ -461,10 +525,10 @@ def check_float_caption_label_order(env):
         label = -1
         caption = -1
         for i in range(*r):
-            b = re.search(r"\\caption\{", tex_lines[i])
+            b = re.search(r"\\caption\{", tex_lines_clean[i])
             if b:
                 caption = i
-            b = re.search(r"\\label\{", tex_lines[i])
+            b = re.search(r"\\label\{", tex_lines_clean[i])
             if b:
                 label = i
         if label > -1 and caption > -1 and label < caption:
@@ -479,7 +543,7 @@ def check_no_resizebox_for_tables():
         rb = False
         b = None
         for i in range(*r):
-            b = re.search(r"\\resizebox\{", tex_lines[i])
+            b = re.search(r"\\resizebox\{", tex_lines_clean[i])
             if b:
                 rb = True
                 break
@@ -491,7 +555,7 @@ def check_no_resizebox_for_tables():
 def check_weird_units():
     warns = []
     block = ["\\textwidth", "\\linewidth"]
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         for b in block:
             if b in l:
                 warns.append((i, "use \\hsize instead of %s" % b, (l.index(b), l.index(b) + len(b))))
@@ -544,10 +608,10 @@ def check_notes():
 
 def check_math_numbers():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         if in_code(i):
             continue
-        n = re.search("\\$\\d+\\$", tex_lines[i]) 
+        n = re.search("\\$\\d+\\$", tex_lines_clean[i])
         if n and not in_any_float(i):
             warns.append((i, "Number in math mode, consider using siunit instead", n.span()))
     return warns
@@ -624,7 +688,7 @@ def check_unused_macro():
                 definitions.append((match.group(1), i, match.span(1)))
                 break
     for name, line, span in definitions:
-        if len(re.findall("\\\\%s\\b" % re.escape(name), tex)) <= 1:
+        if len(re.findall("\\\\%s\\b" % re.escape(name), tex_clean)) <= 1:
             warns.append((line, "Macro \\%s is defined but never used" % name, span))
     return warns
 
@@ -632,7 +696,7 @@ def check_unused_macro():
 def check_required_sections():
     warns = []
     sections = {normalize_title(section["title"]) for section in extract_section_ranges()}
-    if "\\begin{abstract}" in tex:
+    if "\\begin{abstract}" in tex_clean:
         sections.add("abstract")
     required = ["abstract", "introduction", "conclusion"]
     missing = [section.title() for section in required if section not in sections]
@@ -756,8 +820,8 @@ def check_subsection_count_sanity():
 
 def check_large_numbers_without_si():
     warns = []
-    for i, l in enumerate(tex_lines):
-        n = re.search(r"[\s(]\d{5,}[\s),\.]", tex_lines[i]) 
+    for i, l in enumerate(tex_lines_clean):
+        n = re.search(r"[\s(]\d{5,}[\s),\.]", tex_lines_clean[i])
         if n and not in_any_float(i):
             warns.append((i, "Large number without formating, consider using siunit", n.span()))
     return warns
@@ -795,7 +859,7 @@ def check_comment_has_space():
 
 def check_percent_without_siunix():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         n = re.search("\\d+\\s*\\\\%", l)
         if n:
             warns.append((i, "Number with percent without siunit", n.span(0)))
@@ -820,7 +884,7 @@ def check_labels_referenced():
             labels.append((lab.group(1), i, lab.span()))
     for lab in labels:
         found = False
-        for i, l in enumerate(tex_lines):
+        for i, l in enumerate(tex_lines_clean):
             if ("ref{%s}" % lab[0]) in l:
                 found = True
                 break
@@ -832,7 +896,7 @@ def check_labels_referenced():
 
 def check_section_capitalization():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         n = re.search("(section|paragraph)\\{([^\\}]+)\\}", l)
         if n:
             try:
@@ -858,7 +922,7 @@ def check_quotation():
 
 def check_hline_in_table():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         hl = re.search("\\\\hline", l)
         if hl:
             if "tabular" in in_env and in_env["tabular"]:
@@ -868,7 +932,7 @@ def check_hline_in_table():
 
 def check_space_before_punctuation():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         s = re.search("\\s+[,.!?:;]", l)
         if s and not in_any_env(i):
             warns.append((i, "Spacing before punctuation", s.span()))
@@ -877,15 +941,14 @@ def check_space_before_punctuation():
 
 def check_headers_without_text():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         n = re.search("(section|paragraph)\\{([^\\}]+)\\}", l)
         if n:
             nx = i
-            while (nx + 1) < len(tex_lines):
+            while (nx + 1) < len(tex_lines_clean):
                 nx += 1
-                if len(tex_lines[nx].strip()) == 0: continue
-                if tex_lines[nx].strip().startswith("%"): continue
-                nn = re.search("(section|paragraph)\\{([^\\}]+)\\}", tex_lines[nx])
+                if len(tex_lines_clean[nx].strip()) == 0: continue
+                nn = re.search("(section|paragraph)\\{([^\\}]+)\\}", tex_lines_clean[nx])
                 if nn:
                     warns.append((i, "Section header without text before next header", n.span()))
                 break
@@ -894,12 +957,12 @@ def check_headers_without_text():
 
 def check_one_sentence_paragraphs():
     warns = []
-    for i, l in enumerate(tex_lines):
-        if i > 0 and i < len(tex_lines) - 1:
-            if len(tex_lines[i - 1].strip()) == 0 and len(tex_lines[i + 1].strip()) == 0 and len(tex_lines[i].strip()) > 0:
-                if tex_lines[i].strip().startswith("\\"): continue
-                if ". " in tex_lines[i]: continue
-                warns.append((i, "One-sentence paragraph", (0, len(tex_lines[i]))))
+    for i, l in enumerate(tex_lines_clean):
+        if i > 0 and i < len(tex_lines_clean) - 1:
+            if len(tex_lines_clean[i - 1].strip()) == 0 and len(tex_lines_clean[i + 1].strip()) == 0 and len(tex_lines_clean[i].strip()) > 0:
+                if tex_lines_clean[i].strip().startswith("\\"): continue
+                if ". " in tex_lines_clean[i]: continue
+                warns.append((i, "One-sentence paragraph", (0, len(tex_lines_clean[i]))))
     return warns
 
 
@@ -914,7 +977,7 @@ def check_multiple_sentences_per_line():
 
 def check_unbalanced_brackets():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         if in_code(i):
             continue
         masked = tex_lines_math_masked[i]
@@ -927,7 +990,7 @@ def check_unbalanced_brackets():
 
 def check_and_or():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         ao = re.search("and/or", l)
         if ao:
             warns.append((i, "And/or discouraged in academic writing", ao.span()))
@@ -945,7 +1008,7 @@ def check_ellipsis():
 
 def check_etc():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         el = re.search("\\s+etc[\\.\\w]", l)
         if el:
             warns.append((i, "Unspecific \"etc\" discouraged in academic writing", el.span()))
@@ -954,7 +1017,7 @@ def check_etc():
 
 def check_footnote():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         fn = re.search("\\s*\\\\footnote\\{[^\\}]+\\}\\.", l)
         if fn:
             warns.append((i, "Footnote must be after the full stop", fn.span()))
@@ -968,9 +1031,9 @@ def check_table_top_caption():
             caption = -1
             tab = -1
             for intab in range(*table):
-                if re.search("\\\\caption\\{", tex_lines[intab]):
+                if re.search("\\\\caption\\{", tex_lines_clean[intab]):
                    caption = intab
-                if re.search("\\\\begin\\{tabular", tex_lines[intab]):
+                if re.search("\\\\begin\\{tabular", tex_lines_clean[intab]):
                     tab = intab
             if tab != -1 and caption != -1 and tab < caption:
                 warns.append((table[0], "Table caption must be above table"))
@@ -997,7 +1060,7 @@ def check_punctuation_end_of_line():
 
 def check_table_vertical_lines():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         t = re.search("\\\\begin\\{tabular\\}\\{([^\\}]+)\\}", l)
         if t and "|" in t.group(1):
             warns.append((i, "Vertical lines in tables are discouraged", t.span()))
@@ -1006,7 +1069,7 @@ def check_table_vertical_lines():
 
 def check_will():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         w = re.search("\\s+will\\s+", l)
         if w:
             warns.append((i, "Usage of \"will\" is discouraged.", w.span()))
@@ -1017,10 +1080,10 @@ def check_subsection_count():
     warns = []
     last_section = -1
     subsections = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         if re.search("\\\\section{", l):
             if last_section != -1 and len(subsections) == 1:
-                warns.append((last_section, "Section only has one subsection", re.search("\\\\section{", tex_lines[last_section]).span()))
+                warns.append((last_section, "Section only has one subsection", re.search("\\\\section{", tex_lines_clean[last_section]).span()))
             last_section = i
             subsections = []
         if re.search("\\\\subsection{", l):
@@ -1030,13 +1093,13 @@ def check_subsection_count():
 
 def check_mixed_compact_and_item():
     warns = []
-    if "\\begin{compactenum}" in tex:
-        for i, l in enumerate(tex_lines):
+    if "\\begin{compactenum}" in tex_clean:
+        for i, l in enumerate(tex_lines_clean):
             it = re.search(r"\\begin\{enumerate\}", l)
             if it:
                 warns.append((i, "compactenum mixed with enumerate", it.span()))
-    if "\\begin{compactitem}" in tex:
-        for i, l in enumerate(tex_lines):
+    if "\\begin{compactitem}" in tex_clean:
+        for i, l in enumerate(tex_lines_clean):
             it = re.search(r"\\begin\{itemize\}", l)
             if it:
                 warns.append((i, "compactitem mixed with itemize", it.span()))
@@ -1048,13 +1111,13 @@ def check_center_in_float():
     if "center" in envs:
         for c in envs["center"]:
             if in_any_float(c[0]):
-                warns.append((c[0], "Use \\centering instead of \\begin{center} inside floats", re.search(r"\\begin\{center\}", tex_lines[c[0]]).span()))
+                warns.append((c[0], "Use \\centering instead of \\begin{center} inside floats", re.search(r"\\begin\{center\}", tex_lines_clean[c[0]]).span()))
     return warns
 
 
 def check_appendix():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         ap = re.search(r"\\begin\{appendix\}", l)
         if ap:
             warns.append((i, "Use \\appendix instead of \\begin{appendix}", ap.span()))
@@ -1063,7 +1126,7 @@ def check_appendix():
 
 def check_eqnarray():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         ap = re.search(r"\\begin\{eqnarray\}", l)
         if ap:
             warns.append((i, "Use \\begin{align} instead of \\begin{eqnarray}", ap.span()))
@@ -1100,7 +1163,7 @@ def check_acm_pc():
         ("\\borphaned\\-?\\s?object\\b", "unreferenced/unlinked object"),
         ("\\bsanity\\-?\\s?check", "coherence/quick/well-formedness check")
     ]
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         for r in replace:
             w = re.search(r[0], l)
             if w:
@@ -1110,7 +1173,7 @@ def check_acm_pc():
 
 def check_cite_noun():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         ap = re.search("\\b(in|from|by|and|or)[\\s~]\\\\cite", l.lower())
         if ap:
             warns.append((i, "Citation is used as noun", ap.span()))
@@ -1122,7 +1185,7 @@ def check_cite_noun():
 
 def check_cite_duplicate():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         cites = re.findall("\\\\(no)?citeA?\\{([^\\}]+)\\}", l)
         for cite in cites:
             c = [x.strip().split(",") for x in cite]
@@ -1136,7 +1199,7 @@ def check_cite_duplicate():
 
 def check_multicite():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         cites = re.search("\\\\citeA?\\{[^\\}]+\\}\\s*\\\\citeA?\\{[^\\}]+\\}", l)
         if cites:
             warns.append((i, "Multiple \\cite commands, use multiple citation keys in one \\cite instead", cites.span()))
@@ -1145,7 +1208,7 @@ def check_multicite():
 
 def check_emptycite():
     warns = []
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         cites = re.search("\\\\citeA?\\{\\s*\\}", l)
         if cites:
             warns.append((i, "Empty citation key", cites.span()))
@@ -1232,7 +1295,7 @@ def check_numeral():
         ("\\beleven\\b", "11"),
         ("\\btwelve\\b", "12")
     ]
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         for r in replace:
             w = re.search(r[0], l)
             if w:
@@ -1264,7 +1327,7 @@ def check_colors():
         "\\bcheck",
         "\\bpattern"
     ]
-    for i, l in enumerate(tex_lines):
+    for i, l in enumerate(tex_lines_clean):
         for c in cols:
             w = re.search(c, l)
             if w:
